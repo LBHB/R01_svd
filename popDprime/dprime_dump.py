@@ -46,7 +46,7 @@ recache = False
 zscore = False
 
 # regress out first order pupil?
-regress_pupil = False
+regress_pupil = True
 regress_task = False
 
 # plot ref
@@ -58,10 +58,10 @@ else:
 
 # extract evoked periods before lick only
 dec_window = {
-    302: {'start': int(0.1 * Aoptions[302]['rasterfs']), 'end': int(0.3 * Aoptions[302]['rasterfs'])},
-    307: {'start': int(0.35 * Aoptions[307]['rasterfs']), 'end': int(0.55 * Aoptions[307]['rasterfs'])},
-    324: {'start': int(0.1 * Aoptions[324]['rasterfs']), 'end': int(0.3 * Aoptions[324]['rasterfs'])},
-    325: {'start': int(0.1 * Aoptions[325]['rasterfs']), 'end': int(0.3 * Aoptions[325]['rasterfs'])},
+    302: {'start': int(0.1 * Aoptions[302]['rasterfs']), 'end': int(0.4 * Aoptions[302]['rasterfs'])},
+    307: {'start': int(0.35 * Aoptions[307]['rasterfs']), 'end': int(0.65 * Aoptions[307]['rasterfs'])},
+    324: {'start': int(0.1 * Aoptions[324]['rasterfs']), 'end': int(0.4 * Aoptions[324]['rasterfs'])},
+    325: {'start': int(0.1 * Aoptions[325]['rasterfs']), 'end': int(0.4 * Aoptions[325]['rasterfs'])},
     }
 
 # siteids
@@ -96,8 +96,8 @@ for batch in batches:
 
         # mask appropriate trials
         if batch in [324, 325]:
-            active_mask = ['HIT_TRIAL', 'CORRECT_REJECT_TRIAL']
-            rec = rec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL'])
+            active_mask = ['HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL']
+            rec = rec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL'])
         elif batch == 307:
             active_mask = ['HIT_TRIAL']
             rec = rec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
