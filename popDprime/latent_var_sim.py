@@ -27,7 +27,7 @@ from nems.xform_helper import fit_model_xform, load_model_xform
 
 
 outpath="/auto/users/svd/docs/current/grant/r01_AC_pop_A1/eps"
-savefigs=True
+savefigs=False
 
 options = {'resp': True, 'pupil': True, 'rasterfs': 10}
 
@@ -66,8 +66,8 @@ resp = rm['resp']._data
 state = rm['state']._data.copy()
 
 #pool over afl states if using AFL
-state[2,:]=np.sum(state[2:,:],axis=0)
-state=state[:3,:]
+#state[2,:]=np.sum(state[2:,:],axis=0)
+#state=state[:3,:]
 
 pred = rm['pred']._data
 
@@ -76,18 +76,23 @@ state_count=state.shape[0]
 
 cmap='bwr'
 
-lv_count=3 # lv.shape[0]
+# make lv_count=1 if you want to have a single, non-modulated lv
+# lv_count=1
+lv_count=state.shape[0]
 
 indep_noise = np.random.randn(*resp.shape)
-#lv = state[:lv_count,:] * np.random.randn(*state[:lv_count,:].shape)
 lv = np.random.randn(*state[:lv_count,:].shape)
 
 actual_cc = np.cov(resp-psth)
+
+# compute noise correlation for active and passive conditions separately
 aidx = np.sum(state[2:,:],axis=0)>0
 pidx = np.sum(state[2:,:],axis=0)==0
 active_cc = np.cov(resp[:,aidx]-psth[:,aidx])
 passive_cc = np.cov(resp[:,pidx]-psth[:,pidx])
 
+# specialized function to apply weighted LV to each neurons' prediction
+# pred = pred_0 + (d+g*state) * lv  , with d,g as gain and offset
 def lv_mod(d, g, state, lv, pred0, showdetails=False):
     pred=pred0.copy()
     if showdetails:
@@ -100,6 +105,7 @@ def lv_mod(d, g, state, lv, pred0, showdetails=False):
             ax[l].imshow((d[:,l:(l+1)] + g[:,l:(l+1)]*state[l:(l+1),:]), aspect='auto', interpolation='none', origin='lower', cmap=cmap)
     return pred 
 
+# specialized cost function to compute error between predicted and actual noise correlation matrices
 def cc_err(w, pred, indep_noise, lv, psth, actual_cc):
     _w=np.reshape(w,[-1, 1+lv_count*2])
     p = lv_mod(_w[:,1:(lv_count+1)], _w[:,(lv_count+1):], state, lv, pred) + _w[:,0:1]*indep_noise
@@ -108,6 +114,7 @@ def cc_err(w, pred, indep_noise, lv, psth, actual_cc):
     E = np.sum((pascc-passive_cc)**2) / np.sum(passive_cc**2) + np.sum((actcc-active_cc)**2) / np.sum(active_cc**2)
     return E
 
+# fit the LV weights
 w0 = np.zeros((cellcount,1+lv_count*2))
 res = minimize(cc_err, w0, args=(pred, indep_noise, lv, psth, actual_cc), method='L-BFGS-B')
 w=np.reshape(res.x,[-1, 1+lv_count*2])
@@ -251,6 +258,8 @@ for ci, to, r in zip(range(len(conditions)), conditions, cond_recs):
                 pass
         ax[ci,j].set_title(f"{to} - {sig}")
 
+ax[1,0].set_xlabel('PC1')
+ax[1,0].set_ylabel('PC2')
 if savefigs:
     outfile = f"pop_latent_sim_{cellid}_{batch}.pdf"
     print(f"saving to {outpath}/{outfile}")
