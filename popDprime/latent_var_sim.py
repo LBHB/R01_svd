@@ -27,7 +27,8 @@ from nems.xform_helper import fit_model_xform, load_model_xform
 
 
 outpath="/auto/users/svd/docs/current/grant/r01_AC_pop_A1/eps"
-savefigs=False
+recpath="/auto/users/svd/projects/pop_models/tbp"
+savefigs=True
 
 options = {'resp': True, 'pupil': True, 'rasterfs': 10}
 
@@ -35,6 +36,11 @@ options = {'resp': True, 'pupil': True, 'rasterfs': 10}
 ## Load example
 
 modelname= 'll.fs10.pup-ld-norm-st.pup.afl-reftar-aev_wc.Nx30-fir.1x6x30-relu.30-wc.30xR-lvl.R-dexp.R-sdexp2.SxR_tfinit.n.lr1e3.et3.cont-newtf.n.lr1e4.cont'
+batch=324
+cellid="CRD016c-27-2"
+cellid="CRD017c-01-1"
+cellid="CRD018d-04-1"
+cellid="CRD019b-10-1"
 batch=325
 cellid="CRD010b-03-1"
 xf,ctx = load_model_xform(cellid, batch, modelname)
@@ -126,12 +132,12 @@ mm = rec['mask']._data[0,:]
 
 pred_indep = pred + w[:,0:1]*indep_noise
 pred_data[:,mm] = pred_indep
-rec.signals['pred_indep'] = rec['pred']._modified_copy(data=pred_data)
+rec.signals['pred_indep'] = rec['pred']._modified_copy(data=pred_data, name='pred_indep')
 
 pred_lv = lv_mod(w[:,1:(lv_count+1)], w[:,(lv_count+1):], state, lv, pred, showdetails=True) + w[:,0:1]*indep_noise
 pred_data = rec['pred']._data.copy()
 pred_data[:,mm] = pred_lv
-rec.signals['pred_lv'] = rec['pred']._modified_copy(data=pred_data)
+rec.signals['pred_lv'] = rec['pred']._modified_copy(data=pred_data, name='pred_lv')
 
 ## display noise corr. matrices
 
@@ -168,6 +174,11 @@ ax[0,2].set_title('pred + indep + lv')
 ax[0,3].imshow(passive_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr')
 ax[1,3].imshow(active_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr')
 ax[0,3].set_title('actual resp')
+
+if savefigs:
+    outfile = f"noise_corr_sim_{cellid}_{batch}.pdf"
+    print(f"saving to {outpath}/{outfile}")
+    f.savefig(f"{outpath}/{outfile}")
 
 
 ## find PCA and TDR axes
@@ -213,9 +224,9 @@ rt['ppc_lv'] = rt['pred_lv']._modified_copy(rt['pred_lv']._data.T.dot(a.T).T[0:2
 
 units = rt['resp'].chans
 e=rt['resp'].epochs
-r_active = rt.copy().and_mask(['HIT_TRIAL','CORRECT_REJECT_TRIAL'])
+r_active = rt.copy().and_mask(['HIT_TRIAL','CORRECT_REJECT_TRIAL', 'MISS_TRIAL'])
 r_passive = rt.copy().and_mask(['PASSIVE_EXPERIMENT'])
-r_miss = rt.copy().and_mask(['MISS_TRIAL'])
+#r_miss = rt.copy().and_mask(['MISS_TRIAL'])
 stim_len = int(0.5*rt['resp'].fs)
 
 conditions = ['active correct','passive'] #, 'miss']
@@ -264,3 +275,7 @@ if savefigs:
     outfile = f"pop_latent_sim_{cellid}_{batch}.pdf"
     print(f"saving to {outpath}/{outfile}")
     f.savefig(f"{outpath}/{outfile}")
+
+recfile=f"{recpath}/{cellid}_{batch}_LV_sim_rec.tgz"
+rt.save(recfile)
+
