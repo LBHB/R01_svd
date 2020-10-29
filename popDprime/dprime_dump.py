@@ -34,12 +34,11 @@ mpl.rcParams['font.size'] = 14
 # fig path
 fpath = DIR+ 'results/figures/EllipsePlots/'
 res_path = DIR + 'results/'
-special = True  # special loading (of a particular site, for example)
-fn =  '/auto/users/svd/projects/pop_models/tbp/CRD010b-03-1_325_LV_sim_rec.tgz' # for special loading, for now, of lv models
+special = False  # special loading (of a particular site, for example)
 
 # recording load options
 batches = [302, 307, 324, 325]
-batches = [325]
+batches = [324, 325]
 Aoptions = dict.fromkeys(batches)
 Aoptions[302] = {'resp': True, 'pupil': True, 'rasterfs': 10}
 Aoptions[307] = {'resp': True, 'pupil': True, 'rasterfs': 20}
@@ -89,7 +88,7 @@ for batch in batches:
     end = dec_window[batch]['end']
     options = Aoptions[batch]
     sites = np.unique([c[:7] for c in nd.get_batch_cells(batch).cellid])
-    sites = [s for s in sites if (s!='CRD013b') & ('gus' not in s)]    
+    sites = [s for s in sites if (s!='CRD013b') & ('gus' not in s) & (s!='ARM007c')]    
     if batch == 302:
         sites1 = [s+'.e1:64' for s in sites]
         sites2 = [s+'.e65:128' for s in sites]
@@ -111,6 +110,12 @@ for batch in batches:
         manager = BAPHYExperiment(batch=batch, siteid=site[:7], rawid=rawid)
 
         # for loading simualted datasets from modelfits
+        if psth_only | ind_noise | ind_noise_and_lv:
+            # find cached recording with simulated signals
+            path = '/auto/users/svd/projects/pop_models/tbp/'
+            cached_recs = os.listdir(path)
+            cached_recs = [r for r in cached_recs if (site in r) & r.endswith('.tgz')]
+            fn = path + cached_recs[0]
         if psth_only:
             rec = Recording.load(fn)
             rec = rec.create_mask(True)
@@ -132,9 +137,8 @@ for batch in batches:
 
         # mask appropriate trials
         if batch in [324, 325]:
-            #active_mask = ['HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL']
-            active_mask = ['HIT_TRIAL', 'CORRECT_REJECT_TRIAL']
-            rec = rec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL']) #, 'MISS_TRIAL'])
+            active_mask = ['HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL']
+            rec = rec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL'])
         elif batch == 307:
             active_mask = ['HIT_TRIAL']
             rec = rec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
