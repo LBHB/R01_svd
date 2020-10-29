@@ -5,9 +5,11 @@ In active / passive.
 
 define TDR over all stims? Or on pairwise basis? Both? Use PC-space too?
 """
+from nems.xform_helper import fit_model_xform, load_model_xform
 from settings import DIR
 from nems_lbhb.baphy_experiment import BAPHYExperiment
 from nems_lbhb.baphy import parse_cellid
+from nems.recording import Recording
 from charlieTools.ptd_ms.utils import which_rawids
 import charlieTools.baphy_remote as br
 import charlieTools.noise_correlations as nc
@@ -32,9 +34,12 @@ mpl.rcParams['font.size'] = 14
 # fig path
 fpath = DIR+ 'results/figures/EllipsePlots/'
 res_path = DIR + 'results/'
+special = True  # special loading (of a particular site, for example)
+fn =  '/auto/users/svd/projects/pop_models/tbp/CRD010b-03-1_325_LV_sim_rec.tgz' # for special loading, for now, of lv models
 
 # recording load options
 batches = [302, 307, 324, 325]
+batches = [325]
 Aoptions = dict.fromkeys(batches)
 Aoptions[302] = {'resp': True, 'pupil': True, 'rasterfs': 10}
 Aoptions[307] = {'resp': True, 'pupil': True, 'rasterfs': 20}
@@ -46,16 +51,29 @@ recache = False
 zscore = False
 
 # regress out first order pupil?
-regress_pupil = True
+regress_pupil = False
 regress_task = False
 
+# use LV models
+psth_only = False
+ind_noise = False
+ind_noise_and_lv = False
+if (psth_only + ind_noise + ind_noise_and_lv) > 1:
+    raise ValueError
+
 # plot ref
-plot_ref = False
+plot_ref = True
 if plot_ref:
     fext = '_withREF'
 else:
     fext = ''
 
+if psth_only:
+    fext += '_predOnly'
+elif ind_noise:
+    fext += '_indNoise'
+elif ind_noise_and_lv:
+    fext += '_indNoiseLV'
 # extract evoked periods before lick only
 dec_window = {
     302: {'start': int(0.1 * Aoptions[302]['rasterfs']), 'end': int(0.4 * Aoptions[302]['rasterfs'])},
@@ -76,6 +94,9 @@ for batch in batches:
         sites1 = [s+'.e1:64' for s in sites]
         sites2 = [s+'.e65:128' for s in sites]
         sites = sites1 + sites2
+    
+    if special:
+        sites = ['CRD010b']
     for site in sites:
         skip_site = False
         # set up subplots for PCA / TDR projections
@@ -88,16 +109,32 @@ for batch in batches:
             rawid = None
         print("Analyzing site: {}".format(site))
         manager = BAPHYExperiment(batch=batch, siteid=site[:7], rawid=rawid)
-        rec = manager.get_recording(recache=recache, **options)
-        rec['resp'] = rec['resp'].rasterize()
-        if batch == 302:
-            c, _ = parse_cellid({'cellid': site, 'batch': batch})
-            rec['resp'] = rec['resp'].extract_channels(c)
+
+        # for loading simualted datasets from modelfits
+        if psth_only:
+            rec = Recording.load(fn)
+            rec = rec.create_mask(True)
+            rec['resp'] = rec['resp']._modified_copy(rec['pred']._data)
+        elif ind_noise:
+            rec = Recording.load(fn)
+            rec = rec.create_mask(True)
+            rec['resp'] = rec['resp']._modified_copy(rec['pred_indep']._data)
+        elif ind_noise_and_lv:
+            rec = Recording.load(fn)
+            rec = rec.create_mask(True)
+            rec['resp'] = rec['resp']._modified_copy(rec['pred_lv']._data)
+        else:
+            rec = manager.get_recording(recache=recache, **options)
+            rec['resp'] = rec['resp'].rasterize()
+            if batch == 302:
+                c, _ = parse_cellid({'cellid': site, 'batch': batch})
+                rec['resp'] = rec['resp'].extract_channels(c)
 
         # mask appropriate trials
         if batch in [324, 325]:
-            active_mask = ['HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL']
-            rec = rec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL'])
+            #active_mask = ['HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL']
+            active_mask = ['HIT_TRIAL', 'CORRECT_REJECT_TRIAL']
+            rec = rec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL']) #, 'MISS_TRIAL'])
         elif batch == 307:
             active_mask = ['HIT_TRIAL']
             rec = rec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
@@ -550,20 +587,20 @@ df = df.astype(dtypes_new)
 
 if zscore:
     if regress_pupil & regress_task:
-        df.to_pickle(res_path + 'res_zscore_pr_br.pickle')
+        df.to_pickle(res_path + f"res_zscore_pr_br{fext.replace('_withREF', '')}.pickle")
     elif regress_task:
-        df.to_pickle(res_path + 'res_zscore_br.pickle')
+        df.to_pickle(res_path + f"res_zscore_br{fext.replace('_withREF', '')}.pickle")
     elif regress_pupil:
-        df.to_pickle(res_path + 'res_zscore_pr.pickle')
+        df.to_pickle(res_path + f"res_zscore_pr{fext.replace('_withREF', '')}.pickle")
     else:
-        df.to_pickle(res_path + 'res_zscore.pickle')
+        df.to_pickle(res_path + f"res_zscore{fext.replace('_withREF', '')}.pickle")
 else:
     if regress_pupil & regress_task:
-        df.to_pickle(res_path + 'res_pr_br.pickle')
+        df.to_pickle(res_path + f"res_pr_br{fext.replace('_withREF', '')}.pickle")
     elif regress_task:
-        df.to_pickle(res_path + 'res_br.pickle')
+        df.to_pickle(res_path + f"res_br{fext.replace('_withREF', '')}.pickle")
     elif regress_pupil:
-        df.to_pickle(res_path + 'res_pr.pickle')
+        df.to_pickle(res_path + f"res_pr{fext.replace('_withREF', '')}.pickle")
     else:
-        df.to_pickle(res_path + 'res.pickle')
+        df.to_pickle(res_path + f"res{fext.replace('_withREF', '')}.pickle")
 plt.close('all')
