@@ -17,6 +17,7 @@ import charlieTools.preprocessing as preproc
 from charlieTools.plotting import compute_ellipse
 from charlieTools.decoding import compute_dprime
 from charlieTools.dim_reduction import TDR
+import charlieTools.simulate_data as simulate
 import nems_lbhb.tin_helpers as thelp
 from sklearn.decomposition import PCA
 import nems.db as nd
@@ -461,13 +462,13 @@ for batch in batches:
                 else:
                     di = np.inf
                 # extract data over all trials for TDR
-                r1 = rec['resp'].extract_epoch(pair[0], mask=rec['mask'])[:, :, start:end].mean(axis=-1)
-                r2 = rec['resp'].extract_epoch(pair[1], mask=rec['mask'])[:, :, start:end].mean(axis=-1)
-                r1 = (r1 - m) / sd
-                r2 = (r2 - m) / sd
+                r1all = rec['resp'].extract_epoch(pair[0], mask=rec['mask'])[:, :, start:end].mean(axis=-1)
+                r2all = rec['resp'].extract_epoch(pair[1], mask=rec['mask'])[:, :, start:end].mean(axis=-1)
+                r1all = (r1all - m) / sd
+                r2all = (r2all - m) / sd
 
                 tdr = TDR()
-                tdr.fit(r1, r2)
+                tdr.fit(r1all, r2all)
                 pair_tdr_weights = tdr.weights
 
                 # ================================= active data ======================================
@@ -476,77 +477,183 @@ for batch in batches:
                 r1 = (r1 - m) / sd
                 r2 = (r2 - m) / sd
 
+                # simulate first order only changes between active / passive (this includes single neuron variance)
+                r1a = rec['resp'].extract_epoch(pair[0], mask=ra['mask'])[:, :, start:end].mean(axis=-1)
+                r2a = rec['resp'].extract_epoch(pair[1], mask=ra['mask'])[:, :, start:end].mean(axis=-1)
+                r1p = rec['resp'].extract_epoch(pair[0], mask=rp['mask'])[:, :, start:end].mean(axis=-1)
+                r2p = rec['resp'].extract_epoch(pair[1], mask=rp['mask'])[:, :, start:end].mean(axis=-1)
+                # balance rep counts so don't bias covariance to one condition or the other
+                mr1 = np.min([r1a.shape[0], r1p.shape[0]])
+                r1all = np.concatenate((r1a[np.random.choice(range(0, r1a.shape[0]), mr1, replace=False)],
+                                        r1p[np.random.choice(range(0, r1p.shape[0]), mr1, replace=False)]))
+                mr2 = np.min([r2a.shape[0], r2p.shape[0]])
+                r2all = np.concatenate((r2a[np.random.choice(range(0, r2a.shape[0]), mr2, replace=False)],
+                                        r2p[np.random.choice(range(0, r2p.shape[0]), mr2, replace=False)]))
+                sim1 = simulate.generate_simulated_trials({pair[0]: r1a[:, :, np.newaxis]}, 
+                                                          r2={pair[0]: r1all[:, :, np.newaxis]}, keep_stats=[1])[pair[0]].squeeze()
+                sim2 = simulate.generate_simulated_trials({pair[1]: r2a[:, :, np.newaxis]}, 
+                                                          r2={pair[1]: r2all[:, :, np.newaxis]}, keep_stats=[1])[pair[1]].squeeze()
+                sim1 = (sim1 - m) / sd
+                sim2 = (sim2 - m) / sd
+
                 # using overall tdr
                 dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(all_tdr_weights.T).T, r2.dot(all_tdr_weights.T).T)
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(all_tdr_weights.T).T, r2.dot(all_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, all_tdr_weights], \
+                            f1, f2, di, all_tdr_weights, False], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                # === same as above, for simulatd data ===
+                # using overall tdr
+                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, wopt=wopt)
+                dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, diag=True)
+                df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, True, 
+                            idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
+                            f1, f2, di, all_tdr_weights, True], \
+                            index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
+                                'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
+                                'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
 
                 
-                # using pair-specific tdr
+                # using pair-specific tdr,
                 dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(pair_tdr_weights.T).T, r2.dot(pair_tdr_weights.T).T)
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(pair_tdr_weights.T).T, r2.dot(pair_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, False, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, pair_tdr_weights], \
+                            f1, f2, di, pair_tdr_weights, False], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                # === same as above, for simulatd data ===
+                # using pair-specific tdr,
+                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, wopt=wopt)
+                dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, diag=True)
+                df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, False, True, 
+                            idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
+                            f1, f2, di, pair_tdr_weights, True], \
+                            index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
+                                'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
+                                'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
 
                 # using PCA
                 dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(pc_axes.T).T, r2.dot(pc_axes.T).T)
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(pc_axes.T).T, r2.dot(pc_axes.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, True, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, pc_axes], \
+                            f1, f2, di, pc_axes, False], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar',
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights']).T)
-            
-            
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+
+                # === same as above, for simulatd data ===
+                # using PCA
+                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pc_axes.T).T, sim2.dot(pc_axes.T).T, wopt=wopt)
+                dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(pc_axes.T).T, sim2.dot(pc_axes.T).T, diag=True)
+                df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, True, True, 
+                            idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
+                            f1, f2, di, pc_axes, True], \
+                            index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
+                                'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar',
+                                'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+
                 # ================================= passive data ======================================
                 r1 = rec['resp'].extract_epoch(pair[0], mask=rp['mask'])[:, :, start:end].mean(axis=-1)
                 r2 = rec['resp'].extract_epoch(pair[1], mask=rp['mask'])[:, :, start:end].mean(axis=-1)
+                r1 = (r1 - m) / sd
+                r2 = (r2 - m) / sd
+
+                # simulate first order only changes between active / passive (this includes single neuron variance)
+                r1a = rec['resp'].extract_epoch(pair[0], mask=ra['mask'])[:, :, start:end].mean(axis=-1)
+                r2a = rec['resp'].extract_epoch(pair[1], mask=ra['mask'])[:, :, start:end].mean(axis=-1)
+                r1p = rec['resp'].extract_epoch(pair[0], mask=rp['mask'])[:, :, start:end].mean(axis=-1)
+                r2p = rec['resp'].extract_epoch(pair[1], mask=rp['mask'])[:, :, start:end].mean(axis=-1)
+                # balance rep counts so don't bias covariance to one condition or the other
+                mr1 = np.min([r1a.shape[0], r1p.shape[0]])
+                r1all = np.concatenate((r1a[np.random.choice(range(0, r1a.shape[0]), mr1, replace=False)],
+                                        r1p[np.random.choice(range(0, r1p.shape[0]), mr1, replace=False)]))
+                mr2 = np.min([r2a.shape[0], r2p.shape[0]])
+                r2all = np.concatenate((r2a[np.random.choice(range(0, r2a.shape[0]), mr2, replace=False)],
+                                        r2p[np.random.choice(range(0, r2p.shape[0]), mr2, replace=False)]))
+                sim1 = simulate.generate_simulated_trials({pair[0]: r1p[:, :, np.newaxis]}, 
+                                                          r2={pair[0]: r1all[:, :, np.newaxis]}, keep_stats=[1])[pair[0]].squeeze()
+                sim2 = simulate.generate_simulated_trials({pair[1]: r2p[:, :, np.newaxis]}, 
+                                                          r2={pair[1]: r2all[:, :, np.newaxis]}, keep_stats=[1])[pair[1]].squeeze()
+                sim1 = (sim1 - m) / sd
+                sim2 = (sim2 - m) / sd
 
                 # using overall tdr
                 dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(all_tdr_weights.T).T, r2.dot(all_tdr_weights.T).T)
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(all_tdr_weights.T).T, r2.dot(all_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, all_tdr_weights], \
+                            f1, f2, di, all_tdr_weights, False], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                # === same as above, for simulatd data ===
+                # using overall tdr
+                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, wopt=wopt)
+                dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, diag=True)
+                df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, False, 
+                            idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
+                            f1, f2, di, all_tdr_weights, True], \
+                            index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
+                                'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
+                                'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
                 
                 # using pair-specific tdr
                 dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(pair_tdr_weights.T).T, r2.dot(pair_tdr_weights.T).T)
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(pair_tdr_weights.T).T, r2.dot(pair_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, False, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, pair_tdr_weights], \
+                            f1, f2, di, pair_tdr_weights, False], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                # === same as above, for simulatd data ===
+                # using pair-specific tdr,
+                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, wopt=wopt)
+                dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, diag=True)
+                df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, False, False, 
+                            idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
+                            f1, f2, di, pair_tdr_weights, True], \
+                            index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
+                                'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
+                                'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
 
                 # using PCA
-                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(pc_axes.T).T, r2.dot(pc_axes.T).T)
+                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(pc_axes.T).T, r2.dot(pc_axes.T).T,)
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(pc_axes.T).T, r2.dot(pc_axes.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, True, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, pc_axes], \
+                            f1, f2, di, pc_axes, False], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                # ==== same as above for simulations ====
+                # using PCA
+                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pc_axes.T).T, sim2.dot(pc_axes.T).T, wopt=wopt)
+                dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(pc_axes.T).T, sim2.dot(pc_axes.T).T, diag=True)
+                df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, True, False, 
+                            idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
+                            f1, f2, di, pc_axes, True], \
+                            index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
+                                'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar',
+                                'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
 
             df['site'] = site
             if batch in [302, 307, 324]: area='A1'
@@ -584,7 +691,8 @@ dtypes = {
     'f2': 'int32',
     'DI': 'float32',
     'dr_weights': 'object',
-    'batch': 'float32'
+    'batch': 'float32',
+    'sim1': 'bool'
     }
 dtypes_new = {k: v for k, v in dtypes.items() if k in df.columns}
 df = df.astype(dtypes_new)
