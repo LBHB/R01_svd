@@ -39,7 +39,7 @@ special = False  # special loading (of a particular site, for example)
 
 # recording load options
 batches = [302, 307, 324, 325]
-batches = [324, 325]
+#batches = [324, 325]
 Aoptions = dict.fromkeys(batches)
 Aoptions[302] = {'resp': True, 'pupil': True, 'rasterfs': 10}
 Aoptions[307] = {'resp': True, 'pupil': True, 'rasterfs': 20}
@@ -490,9 +490,9 @@ for batch in batches:
                 r2all = np.concatenate((r2a[np.random.choice(range(0, r2a.shape[0]), mr2, replace=False)],
                                         r2p[np.random.choice(range(0, r2p.shape[0]), mr2, replace=False)]))
                 sim1 = simulate.generate_simulated_trials({pair[0]: r1a[:, :, np.newaxis]}, 
-                                                          r2={pair[0]: r1all[:, :, np.newaxis]}, keep_stats=[1])[pair[0]].squeeze()
+                                                          r2={pair[0]: r1p[:, :, np.newaxis]}, keep_stats=[1])[pair[0]].squeeze()
                 sim2 = simulate.generate_simulated_trials({pair[1]: r2a[:, :, np.newaxis]}, 
-                                                          r2={pair[1]: r2all[:, :, np.newaxis]}, keep_stats=[1])[pair[1]].squeeze()
+                                                          r2={pair[1]: r2p[:, :, np.newaxis]}, keep_stats=[1])[pair[1]].squeeze()
                 sim1 = (sim1 - m) / sd
                 sim2 = (sim2 - m) / sd
 
@@ -583,9 +583,9 @@ for batch in batches:
                 r2all = np.concatenate((r2a[np.random.choice(range(0, r2a.shape[0]), mr2, replace=False)],
                                         r2p[np.random.choice(range(0, r2p.shape[0]), mr2, replace=False)]))
                 sim1 = simulate.generate_simulated_trials({pair[0]: r1p[:, :, np.newaxis]}, 
-                                                          r2={pair[0]: r1all[:, :, np.newaxis]}, keep_stats=[1])[pair[0]].squeeze()
+                                                          r2={pair[0]: r1p[:, :, np.newaxis]}, keep_stats=[1])[pair[0]].squeeze()
                 sim2 = simulate.generate_simulated_trials({pair[1]: r2p[:, :, np.newaxis]}, 
-                                                          r2={pair[1]: r2all[:, :, np.newaxis]}, keep_stats=[1])[pair[1]].squeeze()
+                                                          r2={pair[1]: r2p[:, :, np.newaxis]}, keep_stats=[1])[pair[1]].squeeze()
                 sim1 = (sim1 - m) / sd
                 sim2 = (sim2 - m) / sd
 
