@@ -22,7 +22,7 @@ mpl.rcParams['font.size'] = 6
 import datetime as dt
 
 savefig = True
-recache = False
+recache = True
 # recording load options
 options = {"resp": False, "pupil": False, "rasterfs": 20}
 
@@ -56,6 +56,7 @@ if recache:
     snr_strs = ['-inf', '-10', '-5', '0', 'inf']
     rts = {k: [] for k in snr_strs}
     DI = {k: [] for k in snr_strs if ('-inf' not in k)}
+    nSessions = {k: 0 for k in snr_strs}
     for idx, ud in enumerate(uDate):
         print(f"Loading data from {ud}")
         parmfiles = d[d.date==ud].parmfile_path.values.tolist()
@@ -86,8 +87,14 @@ if recache:
         targets = _rts['Target'].keys()
         cat = [t for t in targets if '-Inf' in t][0]
         snrs = thelp.get_snrs(targets)
+        # keep only the freqs with same CF as catch
+        #freqs = thelp.get_freqs(targets)
+        #idx = [True if freq==thelp.get_freqs([cat])[0] else False for freq in freqs]
+        #targets = np.array(list(targets))[idx].tolist()
+        #snrs = [s for s, i in zip(snrs, idx) if i==True]
         for s, t in zip(snrs, targets):
             rts[str(s)].extend(_rts['Target'][t])
+            nSessions[str(s)] += 1
             _t = t.split(':')[0]
             if '-Inf' not in _t:
                 try:
@@ -98,20 +105,31 @@ if recache:
     # cache results
     pickle.dump(rts, open(DIR+"/results/Cordyceps_rts.pickle", "wb"))
     pickle.dump(DI, open(DIR+"/results/Cordyceps_DI.pickle", "wb"))
+    pickle.dump(nSessions, open(DIR+"/results/Cordyceps_nSessions.pickle", "wb"))
 
 else:
     rts = pickle.load(open(DIR+"/results/Cordyceps_rts.pickle", "rb"))
     DI = pickle.load(open(DIR+"/results/Cordyceps_DI.pickle", "rb"))
+    nSessions = pickle.load(open(DIR+"/results/Cordyceps_nSessions.pickle", "rb"))
 
 # get colormap for targets (kludgy, bc this is for many recordings + refs don't matter here)
 targets = ['TAR_1000+'+snr+'+Noise' for snr in rts.keys()]
 reference = ['STIM_1000']
 BwG, gR = thelp.make_tbp_colormaps(reference, targets, use_tar_freq_idx=0)
 
+# don't double count inf -- (reminder / target should get lumped together for this)
+nSessions['inf'] = np.max([v for k, v in nSessions.items() if k != 'inf'])
+
+# nothing should have higher count than number of unique date (that just means there were multiple tars at that SNR)
+mi = len(uDate)
+nSessions = {k: (v if v <= mi else mi) for k, v in nSessions.items()}
+
+legend = [s+ f' dB, n = {n}' if '-inf' not in s else f'Catch, n = {n}' for s, n in zip(rts.keys(), nSessions.values())]
+
 f, ax = plt.subplots(1, 1, figsize=(2, 2), sharey=True)
 
 bins = np.arange(0, 1.2, 0.001)
-plot_RT_histogram(rts, bins=bins, ax=ax, cmap=gR, lw=2)
+plot_RT_histogram(rts, bins=bins, ax=ax, cmap=gR, lw=2, legend=legend)
 
 f.tight_layout()
 

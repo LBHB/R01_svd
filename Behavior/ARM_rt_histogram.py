@@ -22,7 +22,7 @@ mpl.rcParams['font.size'] = 6
 import datetime as dt
 
 savefig = True
-recache = False
+recache = True
 # recording load options
 options = {"resp": False, "pupil": False, "rasterfs": 20}
 
@@ -56,6 +56,7 @@ if recache:
     snr_strs = ['-inf', '-10', '-5', '0', 'inf']
     rts = {k: [] for k in snr_strs}
     DI = {k: [] for k in snr_strs if '-inf' not in k}
+    nSessions = {k: 0 for k in snr_strs}
     for idx, ud in enumerate(uDate):
         print(f"Loading data from {ud}")
         parmfiles = d[d.date==ud].parmfile_path.values.tolist()
@@ -87,9 +88,8 @@ if recache:
         cat = [t for t in targets if '-Inf' in t][0]
         snrs = thelp.get_snrs(targets)
         for s, t in zip(snrs, targets):
-            if s == '-10':
-                import pdb; pdb.set_trace()
             rts[str(s)].extend(_rts['Target'][t])
+            nSessions[str(s)] += 1
             _t = t.split(':')[0]
             if '-Inf' not in _t:
                 DI[str(s)].extend([performance['LI'][_t+'_'+cat.split(':')[0]]])
@@ -97,21 +97,26 @@ if recache:
     # cache rts and DIs for this animal
     pickle.dump(rts, open(DIR+"/results/Armillaria_rts.pickle", "wb" ))
     pickle.dump(DI, open(DIR+"/results/Armillaria_DI.pickle", "wb"))
+    pickle.dump(nSessions, open(DIR+"/results/Armillaria_nSessions.pickle", "wb"))
 
 else:
     rts = pickle.load(open(DIR+"/results/Armillaria_rts.pickle", "rb"))
     DI = pickle.load(open(DIR+"/results/Armillaria_DI.pickle", "rb"))
-
+    nSessions = pickle.load(open(DIR+"/results/Armillaria_nSessions.pickle", "rb"))
 # get colormap for targets (kludgy, bc this is for many recordings + refs don't matter here)
 targets = ['TAR_1000+'+snr+'+Noise' for snr in rts.keys()]
 reference = ['STIM_1000']
 BwG, gR = thelp.make_tbp_colormaps(reference, targets, use_tar_freq_idx=0)
 
+# don't double count inf -- (reminder / target should get lumped together for this)
+nSessions['inf'] = np.max([v for k, v in nSessions.items() if k != 'inf'])
+
+legend = [s+ f' dB, n = {n}' if '-inf' not in s else f'Catch, n = {n}' for s, n in zip(rts.keys(), nSessions.values())]
 
 f, ax = plt.subplots(1, 1, figsize=(2, 2), sharey=True)
 
 bins = np.arange(0, 1.2, 0.001)
-plot_RT_histogram(rts, bins=bins, ax=ax, cmap=gR, lw=2)
+plot_RT_histogram(rts, bins=bins, ax=ax, cmap=gR, lw=2, legend=legend)
 
 f.tight_layout()
 
