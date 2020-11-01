@@ -158,7 +158,7 @@ def lv_mod(d, g, state, lv, pred, showdetails=False):
     for l in range(d.shape[1]):
         sf += (d[:,l:(l+1)] + g[:,l:(l+1)]*state[l:(l+1),:]) * lv[l:(l+1),:]
         if showdetails:
-            ax[l].imshow((d[:,l:(l+1)] + g[:,l:(l+1)]*state[l:(l+1),:]), aspect='auto', i
+            ax[l].imshow((d[:,l:(l+1)] + g[:,l:(l+1)]*state[l:(l+1),:]), aspect='auto', 
                          interpolation='none', origin='lower', cmap=cmap)
     pred *= np.exp(sf)
     return pred 
@@ -184,6 +184,7 @@ def cc_err2(w, pred, indep_noise, lv, pred0, state, actual_cc):
     pascc = np.cov(p[:,pidx] - pred0[:,pidx])
     actcc = np.cov(p[:,aidx] - pred0[:,aidx])
     
+    # compute variance of first two pcs. is this important?
     pcproj = (p-pred).T.dot(pc_axes.T).T
     pp_std = pcproj.std(axis=1)
     E = np.sum((pascc-passive_cc)**2) / np.sum(passive_cc**2) + np.sum((actcc-active_cc)**2) / np.sum(active_cc**2) + \
@@ -199,12 +200,12 @@ w0[:,0]=0.05
 w0[:,lv_count*2]=pc1/10
 
 # first fit without independent noise to push out to LVs
-print('fit, round 1...')
+print(f'fit, round 1 (cc_err2, LV)...')
 res = minimize(cc_err2, w0, args=(pred, indep_noise*0, lv, pred0, state, actual_cc), method='L-BFGS-B')
 w1=np.reshape(res.x,[-1, lv_count*3])
 
 # second fit WITH independent noise to allow for independent noise
-print('fit, round 2...')
+print(f'fit, round 2 (cc_err2, LV + indep)...')
 res = minimize(cc_err2, w1, args=(pred, indep_noise, lv, pred0, state, actual_cc), method='L-BFGS-B')
 w=np.reshape(res.x,[-1, lv_count*3])
 
