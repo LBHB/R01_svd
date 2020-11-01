@@ -237,8 +237,8 @@ mm=np.max(np.abs(passive_cc)) * 0.6
 
 pas_cc = np.cov(pred[:,pidx]-pred0[:,pidx])
 act_cc = np.cov(pred[:,aidx]-pred0[:,aidx])
-ax[0,0].imshow(pas_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr')
-ax[1,0].imshow(act_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr')
+ax[0,0].imshow(pas_cc,aspect='auto',interpolation='none', clim=[-mm,mm], cmap='bwr', origin='lower')
+ax[1,0].imshow(act_cc,aspect='auto',interpolation='none', clim=[-mm,mm], cmap='bwr', origin='lower')
 ax[0,0].set_title(siteid + ' pred')
 
 ax[0,0].set_ylabel('passive')
@@ -246,18 +246,18 @@ ax[1,0].set_ylabel('active')
 
 pas_cc = np.cov(pred_indep[:,pidx]-pred0[:,pidx])
 act_cc = np.cov(pred_indep[:,aidx]-pred0[:,aidx])
-ax[0,1].imshow(pas_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr')
-ax[1,1].imshow(act_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr')
+ax[0,1].imshow(pas_cc,aspect='auto',interpolation='none', clim=[-mm,mm], cmap='bwr', origin='lower')
+ax[1,1].imshow(act_cc,aspect='auto',interpolation='none', clim=[-mm,mm], cmap='bwr', origin='lower')
 ax[0,1].set_title('pred + indep noise')
 
 pas_cc = np.cov(pred_lv[:,pidx]-pred0[:,pidx])
 act_cc = np.cov(pred_lv[:,aidx]-pred0[:,aidx])
-ax[0,2].imshow(pas_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr')
-ax[1,2].imshow(act_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr')
+ax[0,2].imshow(pas_cc,aspect='auto',interpolation='none', clim=[-mm,mm], cmap='bwr', origin='lower')
+ax[1,2].imshow(act_cc,aspect='auto',interpolation='none', clim=[-mm,mm], cmap='bwr', origin='lower')
 ax[0,2].set_title('pred + indep + lv')
 
-ax[0,3].imshow(passive_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr')
-ax[1,3].imshow(active_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr')
+ax[0,3].imshow(passive_cc,aspect='auto',interpolation='none', clim=[-mm,mm], cmap='bwr', origin='lower')
+ax[1,3].imshow(active_cc,aspect='auto',interpolation='none', clim=[-mm,mm], cmap='bwr', origin='lower')
 ax[0,3].set_title('actual resp')
 
 if savefigs:
@@ -302,11 +302,11 @@ for ci, to, r in zip(range(len(conditions)), conditions, cond_recs):
                     g = np.isfinite(p[:,0,onset])
                     x = np.nanmean(p[g,0,onset:offset], axis=1)
                     y = np.nanmean(p[g,1,onset:offset], axis=1)
-                    c=list(colors(i))
-                    c[-1]=0.2
-                    ax[ci, j].plot(x,y,'.', color=c, label=k)
+                    #c=list(colors(i))
+                    #c[-1]=0.2
+                    #ax[ci, j].plot(x,y,'.', color=c, label=k)
                     e = compute_ellipse(x, y)
-                    ax[ci, j].plot(e[0], e[1],color=colors(i))
+                    ax[ci, j].plot(e[0], e[1],color=colors(i), linewidth=0.5)
             except:
                 #print(f'no matches for {k}')
                 pass
@@ -319,11 +319,11 @@ for ci, to, r in zip(range(len(conditions)), conditions, cond_recs):
                     g = np.isfinite(p[:,0,onset])
                     x = np.nanmean(p[g,0,onset:offset], axis=1)
                     y = np.nanmean(p[g,1,onset:offset], axis=1)
-                    c=list(colors(i))
-                    c[-1]=0.2
-                    ax[ci, j].plot(x,y,'.', color=c, label=k)
+                    #c=list(colors(i))
+                    #c[-1]=0.2
+                    #ax[ci, j].plot(x,y,'.', color=c, label=k)
                     e = compute_ellipse(x, y)
-                    ax[ci, j].plot(e[0], e[1],color=colors(i))
+                    ax[ci, j].plot(e[0], e[1], color=colors(i), linewidth=0.5)
             except:
                 #print(f'no matches for {k}')
                 pass
