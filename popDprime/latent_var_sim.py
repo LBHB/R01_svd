@@ -80,6 +80,35 @@ offset = int(offsetsec * options['rasterfs'])
 ref_stim, tar_stim, all_stim = get_sound_labels(rec)
 
 
+## find PCA and TDR axes
+
+from nems_lbhb.dimensionality_reduction import TDR
+
+# can't simply extract evoked for refs because can be longer/shorted if it came after target 
+# and / or if it was the last stim.So, masking prestim / postim doesn't work.Do it manually
+d1 = rec['resp'].extract_epoch('REFERENCE', mask=rec['mask'])
+d2 = rec['resp'].extract_epoch('TARGET', mask=rec['mask'])
+
+d1=np.mean(d1[:,:,2:4], axis=2)
+d2=np.mean(d2[:,:,2:4], axis=2)
+
+tdr = TDR()
+tdr.fit(d1,d2)
+tdr_axes = tdr.weights
+
+# can't simply extract evoked for refs because can be longer/shorted if it came after target 
+# and / or if it was the last stim.So, masking prestim / postim doesn't work.Do it manually
+d = rec['resp'].extract_epochs(all_stim, mask=rec['mask'])
+d = {k: v[~np.isnan(v[:, :, onset:offset].sum(axis=(1, 2))), :, :] for (k, v) in d.items()}
+d = {k: v[:, :, onset:offset] for (k, v) in d.items()}
+
+Rall_u = np.vstack([d[k].sum(axis=2).mean(axis=0) for k in d.keys()])
+
+pca = PCA(n_components=2)
+pca.fit(Rall_u)
+pc_axes = pca.components_
+
+
 ## Fit LV weights to reproduce corr stats
 
 from scipy.optimize import fmin, minimize
@@ -118,26 +147,49 @@ passive_cc = np.cov(resp[:,pidx]-pred0[:,pidx])
 
 # specialized function to apply weighted LV to each neurons' prediction
 # pred = pred_0 + (d+g*state) * lv  , with d,g as gain and offset
+# apply LV multiplicatively, after summing across states.
 def lv_mod(d, g, state, lv, pred, showdetails=False):
     pred=pred.copy()
     if showdetails:
         f,ax=plt.subplots(d.shape[1],1,figsize=(10,5))
         if d.shape[1]==1:
             ax=[ax]
+    sf = np.zeros(pred.shape)
     for l in range(d.shape[1]):
-        pred += (d[:,l:(l+1)] + g[:,l:(l+1)]*state[l:(l+1),:]) * lv[l:(l+1),:]
+        sf += (d[:,l:(l+1)] + g[:,l:(l+1)]*state[l:(l+1),:]) * lv[l:(l+1),:]
         if showdetails:
-            ax[l].imshow((d[:,l:(l+1)] + g[:,l:(l+1)]*state[l:(l+1),:]), aspect='auto', interpolation='none', origin='lower', cmap=cmap)
+            ax[l].imshow((d[:,l:(l+1)] + g[:,l:(l+1)]*state[l:(l+1),:]), aspect='auto', i
+                         interpolation='none', origin='lower', cmap=cmap)
+    pred *= np.exp(sf)
     return pred 
 
+
 # specialized cost function to compute error between predicted and actual noise correlation matrices
-def cc_err(w, pred, indep_noise, lv, pred0, actual_cc):
+def cc_err(w, pred, indep_noise, lv, pred0, state, actual_cc):
     _w=np.reshape(w,[-1, lv_count*3])
     p = lv_mod(_w[:,lv_count:(lv_count*2)], _w[:,(lv_count*2):(lv_count*3)], state, lv, pred) + (_w[:,0:lv_count] @ state) *indep_noise
     pascc = np.cov(p[:,pidx] - pred0[:,pidx])
     actcc = np.cov(p[:,aidx] - pred0[:,aidx])
     E = np.sum((pascc-passive_cc)**2) / np.sum(passive_cc**2) + np.sum((actcc-active_cc)**2) / np.sum(active_cc**2)
     return E
+
+# specialized cost function to compute error between predicted and actual noise correlation matrices
+# also minimizes error in variance of PCs 1 and 2. not clear if necessary.
+pcproj0 = (resp-pred).T.dot(pc_axes.T).T
+pcproj_std = pcproj0.std(axis=1)
+
+def cc_err2(w, pred, indep_noise, lv, pred0, state, actual_cc):
+    _w=np.reshape(w,[-1, lv_count*3])
+    p = lv_mod(_w[:,lv_count:(lv_count*2)], _w[:,(lv_count*2):(lv_count*3)], state, lv, pred) + (_w[:,0:lv_count] @ state) *indep_noise
+    pascc = np.cov(p[:,pidx] - pred0[:,pidx])
+    actcc = np.cov(p[:,aidx] - pred0[:,aidx])
+    
+    pcproj = (p-pred).T.dot(pc_axes.T).T
+    pp_std = pcproj.std(axis=1)
+    E = np.sum((pascc-passive_cc)**2) / np.sum(passive_cc**2) + np.sum((actcc-active_cc)**2) / np.sum(active_cc**2) + \
+       np.sum((pcproj_std-pp_std)**2)*10
+    return E
+
 
 ## fit the LV weights
 
@@ -148,12 +200,12 @@ w0[:,lv_count*2]=pc1/10
 
 # first fit without independent noise to push out to LVs
 print('fit, round 1...')
-res = minimize(cc_err, w0, args=(pred, indep_noise*0, lv, pred0, actual_cc), method='L-BFGS-B')
+res = minimize(cc_err2, w0, args=(pred, indep_noise*0, lv, pred0, state, actual_cc), method='L-BFGS-B')
 w1=np.reshape(res.x,[-1, lv_count*3])
 
 # second fit WITH independent noise to allow for independent noise
 print('fit, round 2...')
-res = minimize(cc_err, w1, args=(pred, indep_noise, lv, pred0, actual_cc), method='L-BFGS-B')
+res = minimize(cc_err2, w1, args=(pred, indep_noise, lv, pred0, state, actual_cc), method='L-BFGS-B')
 w=np.reshape(res.x,[-1, lv_count*3])
 
 ## generate predictions with indep noise and LV
@@ -211,35 +263,6 @@ if savefigs:
     outfile = f"noise_corr_sim_{siteid}_{batch}.pdf"
     print(f"saving to {outpath}/{outfile}")
     f.savefig(f"{outpath}/{outfile}")
-
-
-## find PCA and TDR axes
-
-from nems_lbhb.dimensionality_reduction import TDR
-
-# can't simply extract evoked for refs because can be longer/shorted if it came after target 
-# and / or if it was the last stim.So, masking prestim / postim doesn't work.Do it manually
-d1 = rec['resp'].extract_epoch('REFERENCE', mask=rec['mask'])
-d2 = rec['resp'].extract_epoch('TARGET', mask=rec['mask'])
-
-d1=np.mean(d1[:,:,2:4], axis=2)
-d2=np.mean(d2[:,:,2:4], axis=2)
-
-tdr = TDR()
-tdr.fit(d1,d2)
-tdr_axes = tdr.weights
-
-# can't simply extract evoked for refs because can be longer/shorted if it came after target 
-# and / or if it was the last stim.So, masking prestim / postim doesn't work.Do it manually
-d = rec['resp'].extract_epochs(all_stim, mask=rec['mask'])
-d = {k: v[~np.isnan(v[:, :, onset:offset].sum(axis=(1, 2))), :, :] for (k, v) in d.items()}
-d = {k: v[:, :, onset:offset] for (k, v) in d.items()}
-
-Rall_u = np.vstack([d[k].sum(axis=2).mean(axis=0) for k in d.keys()])
-
-pca = PCA(n_components=2)
-pca.fit(Rall_u)
-pc_axes = pca.components_
 
 
 ## project onto one or the other
