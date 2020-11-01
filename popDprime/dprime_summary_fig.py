@@ -11,7 +11,7 @@ import matplotlib as mpl
 mpl.rcParams['axes.spines.right'] = False
 mpl.rcParams['axes.spines.top'] = False
 mpl.rcParams['pdf.fonttype'] = 42
-mpl.rcParams['font.size'] = 14
+mpl.rcParams['font.size'] = 6
 
 savefig = True
 col_per_site = False
@@ -24,20 +24,21 @@ df.index = df.pair
 val = 'dp_opt'
 df[val] = np.sqrt(df[val])
 m = 8
+ms = 30
 
 tar_mask = (df.tar_tar) & (df.tdr_overall==True) & (~df.pca) & df.batch.isin([324, 325]) & (df.f1 == df.f2) 
 cat_mask = (df.cat_tar) & (df.tdr_overall==True) & (~df.pca) & df.batch.isin([324, 325]) & (df.f1 == df.f2) 
 ref_mask = (df.ref_ref) & (df.tdr_overall==True) & (~df.pca) & df.batch.isin([324, 325])
 
-f, ax = plt.subplots(2, 2, figsize=(8, 8))
+f, ax = plt.subplots(2, 2, figsize=(4, 4))
 
 # ==== A1 ===== 
 ax[0, 0].scatter(y=df[tar_mask & df.active & (df.area=='A1')].groupby(by='site').mean()[val],
-            x=df[tar_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val], s=80, edgecolor='k', color='coral', label='Tar vs. Tar')
+            x=df[tar_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val], s=ms, edgecolor='k', color='coral', label='Tar vs. Tar')
 ax[0, 0].scatter(y=df[cat_mask & df.active & (df.area=='A1')].groupby(by='site').mean()[val],
-            x=df[cat_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val], s=80, edgecolor='k', color='lightgrey', label='Tar vs. Cat')
+            x=df[cat_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val], s=ms, edgecolor='k', color='lightgrey', label='Tar vs. Cat')
 ax[0, 0].scatter(y=df[ref_mask & df.active & (df.area=='A1')].groupby(by='site').mean()[val],
-            x=df[ref_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val], s=80, edgecolor='k', color='mediumblue', label='Ref vs. Ref')
+            x=df[ref_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val], s=ms, edgecolor='k', color='mediumblue', label='Ref vs. Ref')
 ax[0, 0].set_xlabel(r"$d'$ Active")
 ax[0, 0].set_ylabel(r"$d'$ Passive")
 ax[0, 0].plot([0, m], [0, m], '--', color='grey', lw=2)
@@ -46,11 +47,11 @@ ax[0, 0].legend(frameon=False)
 
 # ==== PEG ===== 
 ax[0, 1].scatter(y=df[tar_mask & df.active & (df.area=='PEG')].groupby(by='site').mean()[val],
-            x=df[tar_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val], s=80, edgecolor='k', color='coral')
+            x=df[tar_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val], s=ms, edgecolor='k', color='coral')
 ax[0, 1].scatter(y=df[cat_mask & df.active & (df.area=='PEG')].groupby(by='site').mean()[val],
-            x=df[cat_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val], s=80, edgecolor='k', color='lightgrey')
+            x=df[cat_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val], s=ms, edgecolor='k', color='lightgrey')
 ax[0, 1].scatter(y=df[ref_mask & df.active & (df.area=='PEG')].groupby(by='site').mean()[val],
-            x=df[ref_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val], s=80, edgecolor='k', color='mediumblue')
+            x=df[ref_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val], s=ms, edgecolor='k', color='mediumblue')
 ax[0, 1].set_xlabel(r"$d'$ Active")
 ax[0, 1].set_ylabel(r"$d'$ Passive")
 ax[0, 1].plot([0, m], [0, m], '--', color='grey', lw=2)
