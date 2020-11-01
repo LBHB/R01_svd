@@ -6,7 +6,7 @@ import matplotlib as mpl
 mpl.rcParams['axes.spines.right'] = False
 mpl.rcParams['axes.spines.top'] = False
 mpl.rcParams['pdf.fonttype'] = 42
-mpl.rcParams['font.size'] = 14
+mpl.rcParams['font.size'] = 6
 
 savefig = True
 
@@ -24,15 +24,15 @@ dtypes = {'di': 'float32','site': 'object', 'snr': 'category'}
 df = df.astype(dtypes)
 
 
-f, ax = plt.subplots(1, 1, figsize=(5, 6))
+f, ax = plt.subplots(1, 1, figsize=(2, 2))
 
 ax.errorbar([0, 1, 2], df[df.site=='CRD'][['di', 'snr']].groupby(by='snr').mean()['di'], 
                           yerr=df[df.site=='CRD'][['di', 'snr']].groupby(by='snr').sem()['di'], 
-                          marker='o', capsize=3, lw=2, markeredgewidth=2, label='CRD')
+                          marker='o', capsize=3, lw=1, markeredgewidth=1, label='CRD')
 ax.errorbar([0, 1, 2], df[df.site=='ARM'][['di', 'snr']].groupby(by='snr').mean()['di'], 
                           yerr=df[df.site=='CRD'][['di', 'snr']].groupby(by='snr').sem()['di'], 
-                          marker='o', capsize=3, lw=2, markeredgewidth=2, label='ARM')
-ax.axhline(0.5, linestyle='--', color='grey', lw=2)
+                          marker='o', capsize=3, lw=1, markeredgewidth=1, label='ARM')
+ax.axhline(0.5, linestyle='--', color='grey', lw=1)
 ax.legend(frameon=False)
 ax.set_ylabel('DI')
 ax.set_xlabel('SNR')

@@ -8,6 +8,11 @@ import numpy as np
 import nems_lbhb.baphy_io as io
 from mpl_toolkits.axes_grid.inset_locator import (inset_axes, InsetPosition,
                                                   mark_inset)
+import matplotlib as mpl
+mpl.rcParams['axes.spines.right'] = False
+mpl.rcParams['axes.spines.top'] = False
+mpl.rcParams['pdf.fonttype'] = 42
+mpl.rcParams['font.size'] = 6
 
 savefig = True
 parmfile = '/auto/data/daq/Armillaria/ARM004/ARM004e18_p_NON.m'
@@ -39,7 +44,7 @@ opt_mask = opt_data.extract_epoch('REFERENCE').mean(axis=(1,2)) > 0
 opt_s_stop = (np.argwhere(np.diff(opt_data.extract_epoch('REFERENCE')[opt_mask, :, :][0].squeeze())) + 1) / rasterfs
 
 # make figures
-f, ax = plt.subplots(2, 2, figsize=(12, 8))
+f, ax = plt.subplots(2, 2, figsize=(5, 4))
 
 # ================= non-tagged unit ========================
 r = rec['resp'].extract_channels([unit2]).extract_epoch('REFERENCE').squeeze()

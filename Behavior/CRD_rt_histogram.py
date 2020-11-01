@@ -18,7 +18,7 @@ import matplotlib as mpl
 mpl.rcParams['axes.spines.right'] = False
 mpl.rcParams['axes.spines.top'] = False
 mpl.rcParams['pdf.fonttype'] = 42
-mpl.rcParams['font.size'] = 14
+mpl.rcParams['font.size'] = 6
 import datetime as dt
 
 savefig = True
@@ -108,7 +108,7 @@ targets = ['TAR_1000+'+snr+'+Noise' for snr in rts.keys()]
 reference = ['STIM_1000']
 BwG, gR = thelp.make_tbp_colormaps(reference, targets, use_tar_freq_idx=0)
 
-f, ax = plt.subplots(1, 1, figsize=(6, 4), sharey=True)
+f, ax = plt.subplots(1, 1, figsize=(2, 2), sharey=True)
 
 bins = np.arange(0, 1.2, 0.001)
 plot_RT_histogram(rts, bins=bins, ax=ax, cmap=gR, lw=2)
