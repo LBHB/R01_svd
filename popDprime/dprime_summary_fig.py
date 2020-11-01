@@ -15,6 +15,7 @@ mpl.rcParams['font.size'] = 14
 
 savefig = True
 col_per_site = False
+norm = False
 figsave = DIR + 'results/figures/decodng_summary.pdf'
 
 df = pd.read_pickle(DIR + 'results/res.pickle')
@@ -58,16 +59,30 @@ ax[0, 1].set_title('PEG')
 # normalize changes and look within site
 tt_act = df[tar_mask & df.active & (df.area=='A1')][[val, 'site']].set_index('site')
 tt_pass = df[tar_mask & ~df.active & (df.area=='A1')][[val, 'site']].set_index('site')
-tt_delta = ((tt_act - tt_pass) / (tt_act + tt_pass)).groupby(level=0).mean()
-tt_sem = ((tt_act - tt_pass) / (tt_act + tt_pass)).groupby(level=0).sem()
+if norm:
+    n = (tt_act + tt_pass)
+else:
+    n = 1
+tt_delta = ((tt_act - tt_pass) / n).groupby(level=0).mean()
+tt_sem = ((tt_act - tt_pass) / n).groupby(level=0).sem()
+
 ct_act = df[cat_mask & df.active & (df.area=='A1')][[val, 'site']].set_index('site')
 ct_pass = df[cat_mask & ~df.active & (df.area=='A1')][[val, 'site']].set_index('site')
-ct_delta = ((ct_act - ct_pass) / (ct_act + ct_pass)).groupby(level=0).mean()
-ct_sem = ((ct_act - ct_pass) / (ct_act + ct_pass)).groupby(level=0).sem()
+if norm:
+    n = (ct_act + ct_pass)
+else:
+    n = 1
+ct_delta = ((ct_act - ct_pass) / n).groupby(level=0).mean()
+ct_sem = ((ct_act - ct_pass) / n).groupby(level=0).sem()
+
 rr_act = df[ref_mask & df.active & (df.area=='A1')][[val, 'site']].set_index('site')
 rr_pass = df[ref_mask & ~df.active & (df.area=='A1')][[val, 'site']].set_index('site')
-rr_delta = ((rr_act - rr_pass) / (rr_act + rr_pass)).groupby(level=0).mean()
-rr_sem = ((rr_act - rr_pass) / (rr_act + rr_pass)).groupby(level=0).sem()
+if norm:
+    n = (rr_act + rr_pass)
+else:
+    n = 1
+rr_delta = ((rr_act - rr_pass) / n).groupby(level=0).mean()
+rr_sem = ((rr_act - rr_pass) / n).groupby(level=0).sem()
 
 colors = plt.get_cmap('jet', len(ct_delta.index))
 cells = pd.concat([nd.get_batch_cells(324).cellid, nd.get_batch_cells(302).cellid])
@@ -91,18 +106,33 @@ ax[1, 0].axhline(0, linestyle='--', color='grey', lw=2)
 ax[1, 0].set_xticklabels(['Ref vs. Ref,', 'Tar. vs. Tar', 'Cat vs. Tar'], rotation=45)
 ax[1, 0].set_ylabel(r"$\Delta d'$")
 
+# normalize changes and look within site
 tt_act = df[tar_mask & df.active & (df.area=='PEG')][[val, 'site']].set_index('site')
 tt_pass = df[tar_mask & ~df.active & (df.area=='PEG')][[val, 'site']].set_index('site')
-tt_delta = ((tt_act - tt_pass) / (tt_act + tt_pass)).groupby(level=0).mean()
-tt_sem = ((tt_act - tt_pass) / (tt_act + tt_pass)).groupby(level=0).sem()
+if norm:
+    n = (tt_act + tt_pass)
+else:
+    n = 1
+tt_delta = ((tt_act - tt_pass) / n).groupby(level=0).mean()
+tt_sem = ((tt_act - tt_pass) / n).groupby(level=0).sem()
+
 ct_act = df[cat_mask & df.active & (df.area=='PEG')][[val, 'site']].set_index('site')
 ct_pass = df[cat_mask & ~df.active & (df.area=='PEG')][[val, 'site']].set_index('site')
-ct_delta = ((ct_act - ct_pass) / (ct_act + ct_pass)).groupby(level=0).mean()
-ct_sem = ((ct_act - ct_pass) / (ct_act + ct_pass)).groupby(level=0).sem()
+if norm:
+    n = (ct_act + ct_pass)
+else:
+    n = 1
+ct_delta = ((ct_act - ct_pass) / n).groupby(level=0).mean()
+ct_sem = ((ct_act - ct_pass) / n).groupby(level=0).sem()
+
 rr_act = df[ref_mask & df.active & (df.area=='PEG')][[val, 'site']].set_index('site')
 rr_pass = df[ref_mask & ~df.active & (df.area=='PEG')][[val, 'site']].set_index('site')
-rr_delta = ((rr_act - rr_pass) / (rr_act + rr_pass)).groupby(level=0).mean()
-rr_sem = ((rr_act - rr_pass) / (rr_act + rr_pass)).groupby(level=0).sem()
+if norm:
+    n = (rr_act + rr_pass)
+else:
+    n = 1
+rr_delta = ((rr_act - rr_pass) / n).groupby(level=0).mean()
+rr_sem = ((rr_act - rr_pass) / n).groupby(level=0).sem()
 
 colors = plt.get_cmap('jet', len(ct_delta.index))
 cells = nd.get_batch_cells(325).cellid
