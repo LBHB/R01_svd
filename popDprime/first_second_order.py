@@ -28,41 +28,64 @@ cmap = {
 
 val = 'dp_opt'
 df[val] = np.sqrt(df[val])
-m = 20
-ms = 4
+m = 4
+mi = -1
+ms = 30
 
 tar_mask = (df.tar_tar) & (df.tdr_overall==True) & (~df.pca) & df.batch.isin([324, 325]) & (df.f1 == df.f2) 
 cat_mask = (df.cat_tar) & (df.tdr_overall==True) & (~df.pca) & df.batch.isin([324, 325]) & (df.f1 == df.f2) 
 ref_mask = (df.ref_ref) & (df.tdr_overall==True) & (~df.pca) & df.batch.isin([324, 325])
 
-# compute delte dprime for simulations and for raw data, for each category, for each area
+# compute delta dprime for simulations and for raw data, for each category, for each area
+delta = dict.fromkeys(['A1', 'PEG'])
+sem = dict.fromkeys(['A1', 'PEG'])
+delta_sim = dict.fromkeys(['A1', 'PEG'])
+sem_sim = dict.fromkeys(['A1', 'PEG'])
+for area in ['A1', 'PEG']:
+    delta[area] = {}
+    sem[area] = {}
+    delta_sim[area] = {}
+    sem_sim[area] = {}
+    for category, mask in zip(['tt', 'ct', 'rr'], [tar_mask, cat_mask, ref_mask]):
+        # raw data
+        act = df[mask & df.active & (df.area==area) & ~df.sim1][[val, 'site']].set_index('site')
+        pas = df[mask & ~df.active & (df.area==area) & ~df.sim1][[val, 'site']].set_index('site')
+        if norm:
+            n = (act + pas)
+        else:
+            n = 1
+        delta[area][category] = ((act - pas) / n).groupby(level=0).mean().values
+        sem[area][category] =  ((act - pas) / n).groupby(level=0).sem().values
 
+        # sim1 data
+        act = df[mask & df.active & (df.area==area) & df.sim1][[val, 'site']].set_index('site')
+        pas = df[mask & ~df.active & (df.area==area) & df.sim1][[val, 'site']].set_index('site')
+        if norm:
+            n = (act + pas)
+        else:
+            n = 1
+        delta_sim[area][category] = ((act - pas) / n).groupby(level=0).mean().values
+        sem_sim[area][category] =  ((act - pas) / n).groupby(level=0).sem().values
 
 f, ax = plt.subplots(2, 1, figsize=(2, 4))
 
 # ==== A1 ===== 
-ax[0].scatter(y=(df[tar_mask & df.active & (df.area=='A1')].groupby(by='site').mean()[val]) - (df[tar_mask & ~df.active & (df.area=='A1')][val]),
-            x=(df[tar_mask & df.active & (df.area=='A1')][val]) - (df[tar_mask & ~df.active & (df.area=='A1')][val]), s=ms, color=cmap['tar_tar'], label='Tar vs. Tar')
-ax[0].scatter(y=df[cat_mask & df.active & (df.area=='A1')][val],
-            x=df[cat_mask & ~df.active & (df.area=='A1')][val], s=ms, color=cmap['cat_tar'], label='Tar vs. Cat')
-ax[0].scatter(y=df[ref_mask & df.active & (df.area=='A1')][val],
-            x=df[ref_mask & ~df.active & (df.area=='A1')][val], s=ms, color=cmap['ref_ref'], label='Ref vs. Ref', zorder=-3)
-ax[0].set_xlabel(r"$d'$ Active")
-ax[0].set_ylabel(r"$d'$ Passive")
-ax[0].plot([0, m], [0, m], '--', color='grey', lw=2)
+ax[0].scatter(delta_sim['A1']['tt'], delta['A1']['tt'], s=ms, color=cmap['tar_tar'], edgecolor='k', label='Tar vs. Tar')
+ax[0].scatter(delta_sim['A1']['ct'], delta['A1']['ct'], s=ms, color=cmap['cat_tar'], edgecolor='k', label='Tar vs. Tar')
+ax[0].scatter(delta_sim['A1']['rr'], delta['A1']['rr'], s=ms, color=cmap['ref_ref'], edgecolor='k', label='Ref vs. Ref')
+ax[0].set_xlabel(r"$\Delta d'$ 1st-order")
+ax[0].set_ylabel(r"$\Delta d'$ Raw")
+ax[0].plot([mi, m], [mi, m], '--', color='grey', lw=2)
 ax[0].set_title('A1')
 ax[0].legend(frameon=False)
 
 # ==== PEG ===== 
-ax[1].scatter(y=df[tar_mask & df.active & (df.area=='PEG')][val],
-            x=df[tar_mask & ~df.active & (df.area=='PEG')][val], s=ms, color=cmap['tar_tar'])
-ax[1].scatter(y=df[cat_mask & df.active & (df.area=='PEG')][val],
-            x=df[cat_mask & ~df.active & (df.area=='PEG')][val], s=ms, color=cmap['cat_tar'])
-ax[1].scatter(y=df[ref_mask & df.active & (df.area=='PEG')][val],
-            x=df[ref_mask & ~df.active & (df.area=='PEG')][val], s=ms, color=cmap['ref_ref'], zorder=-3)
-ax[1].set_xlabel(r"$d'$ Active")
-ax[1].set_ylabel(r"$d'$ Passive")
-ax[1].plot([0, m], [0, m], '--', color='grey', lw=2)
+ax[1].scatter(delta_sim['PEG']['tt'], delta['PEG']['tt'], s=ms, color=cmap['tar_tar'], edgecolor='k', label='Tar vs. Tar')
+ax[1].scatter(delta_sim['PEG']['ct'], delta['PEG']['ct'], s=ms, color=cmap['cat_tar'], edgecolor='k', label='Tar vs. Tar')
+ax[1].scatter(delta_sim['PEG']['rr'], delta['PEG']['rr'], s=ms, color=cmap['ref_ref'], edgecolor='k', label='Ref vs. Ref')
+ax[1].set_xlabel(r"$\Delta d'$ 1st-order")
+ax[1].set_ylabel(r"$\Delta d'$ Raw")
+ax[1].plot([mi, m], [mi, m], '--', color='grey', lw=2)
 ax[1].set_title('PEG')
 
 f.tight_layout()

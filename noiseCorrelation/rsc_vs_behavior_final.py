@@ -84,6 +84,6 @@ ax[1].set_title(r"$r$: %s, $p$: %s" % (round(r, 3), round(p, 3)))
 
 f.tight_layout()
 
-f.savefig(DIR + '/results/figures/rsc_behavior.svg')
+f.savefig(DIR + '/results/figures/rsc_behavior.pdf')
 
 plt.show()
