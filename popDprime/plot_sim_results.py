@@ -16,7 +16,7 @@ df.index = df.pair
 
 val = 'dp_opt'
 
-mask = ~df.tdr_overall & ~df.pca & df.ref_tar & (df.batch.isin([324]))
+mask = ~df.tdr_overall & ~df.pca & df.cat_tar & (df.batch.isin([324 & 325]))
 mask_raw = mask & ~df.sim1
 mask_sim = mask & df.sim1
 
@@ -60,8 +60,8 @@ f.tight_layout()
     # diff between CFs of sounds, and SNR of target
     # for these two dims, look at "redisual" change in decoding (presumably due to 2nd order)
 norm = True
-f, ax = plt.subplots(1, 1, figsize=(6, 6))
 if df[mask_raw].ref_tar.sum() == df[mask_raw].shape[0]:
+    f, ax = plt.subplots(1, 1, figsize=(6, 6))
     if norm:
         residual = pd.DataFrame(((df[mask_raw & df.active][val] - df[mask_raw & ~df.active][val]) / (df[mask_raw & df.active][val] + df[mask_raw & ~df.active][val])) - \
                         ((df[mask_sim & df.active][val] - df[mask_sim & ~df.active][val]) / (df[mask_sim & df.active][val] + df[mask_sim & ~df.active][val])))
