@@ -13,7 +13,7 @@ mpl.rcParams['axes.spines.top'] = False
 mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['font.size'] = 6
 
-savefig = True
+savefig = False
 group = True
 scatterplot = True
 ms = 30
@@ -26,14 +26,14 @@ figsave = DIR + 'results/figures/first_second_order.pdf'
 df = pd.read_pickle(DIR + 'results/res.pickle')
 df.index = df.pair
 
+val = 'dp_opt'
+df[val] = np.sqrt(df[val])
+
 cmap = {
     'cat_tar': 'lightgrey',
     'tar_tar': 'coral',
     'ref_ref': 'mediumblue'
 }
-
-val = 'dp_opt'
-df[val] = np.sqrt(df[val])
 
 tar_mask = (df.tar_tar) & (df.tdr_overall==True) & (~df.pca) & df.batch.isin([324, 325]) & (df.f1 == df.f2) 
 cat_mask = (df.cat_tar) & (df.tdr_overall==True) & (~df.pca) & df.batch.isin([324, 325]) & (df.f1 == df.f2) 
