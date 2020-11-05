@@ -39,7 +39,7 @@ special = False  # special loading (of a particular site, for example)
 
 # recording load options
 batches = [302, 307, 324, 325]
-#batches = [324, 325]
+batches = [324, 325]
 Aoptions = dict.fromkeys(batches)
 Aoptions[302] = {'resp': True, 'pupil': True, 'rasterfs': 10}
 Aoptions[307] = {'resp': True, 'pupil': True, 'rasterfs': 20}
@@ -57,7 +57,7 @@ regress_task = False
 # use LV models
 psth_only = False
 ind_noise = False
-ind_noise_and_lv = False
+ind_noise_and_lv = True
 if (psth_only + ind_noise + ind_noise_and_lv) > 1:
     raise ValueError
 
@@ -115,7 +115,7 @@ for batch in batches:
             # find cached recording with simulated signals
             path = '/auto/users/svd/projects/pop_models/tbp/'
             cached_recs = os.listdir(path)
-            cached_recs = [r for r in cached_recs if (site in r) & r.endswith('.tgz')]
+            cached_recs = [r for r in cached_recs if (site == r.split('_')[0]) & r.endswith('.tgz')]
             fn = path + cached_recs[0]
         if psth_only:
             rec = Recording.load(fn)
