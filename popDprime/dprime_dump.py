@@ -280,6 +280,7 @@ for batch in batches:
             pca = PCA(n_components=2)
             pca.fit(Rall_u)
             pc_axes = pca.components_
+            pc_axes = pred_pc
 
             # plot projections for data into the PCA space and "all" TDR space
             # REF
