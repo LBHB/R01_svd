@@ -215,12 +215,12 @@ mm = rec['mask']._data[0,:]
 
 pred_indep = pred + (w[:,0:lv_count] @ state) *indep_noise
 pred_data[:,mm] = pred_indep
-rec.signals['pred_indep'] = rec['pred']._modified_copy(data=pred_data)
+rec['pred_indep'] = rec['pred']._modified_copy(data=pred_data)
 
 pred_lv = lv_mod(w[:,lv_count:(lv_count*2)], w[:,(lv_count*2):(lv_count*3)], state, lv, pred, showdetails=True) + (w[:,0:lv_count] @ state) *indep_noise
 pred_data = rec['pred']._data.copy()
 pred_data[:,mm] = pred_lv
-rec.signals['pred_lv'] = rec['pred']._modified_copy(data=pred_data)
+rec['pred_lv'] = rec['pred']._modified_copy(data=pred_data)
 
 
 ## display noise corr. matrices
@@ -273,7 +273,7 @@ a=pc_axes
 rt=rec.copy()
 
 # project onto first two PCs
-rt['rpc'] = rt['resp']._modified_copy(rt['resp']._data.T.dot(a.T).T[0:2, :])
+rt['rpc'] = rt['resp']._modified_copy(rt['resp']._data.T.dot(a.T).T[0:2, :], name='rpc')
 rt['ppc_pred'] = rt['pred']._modified_copy(rt['pred']._data.T.dot(a.T).T[0:2, :])
 rt['ppc_indep'] = rt['pred_indep']._modified_copy(rt['pred_indep']._data.T.dot(a.T).T[0:2, :])
 rt['ppc_lv'] = rt['pred_lv']._modified_copy(rt['pred_lv']._data.T.dot(a.T).T[0:2, :])
@@ -338,6 +338,6 @@ if savefigs:
     print(f"saving to {outpath}/{outfile}")
     f.savefig(f"{outpath}/{outfile}")
 
-recfile=f"{recpath}/{cellid}_{batch}_LV_sim_rec.tgz"
+recfile=f"{recpath}/{siteid}_{batch}_LV_sim_rec.tgz"
 rt.save(recfile)
 
