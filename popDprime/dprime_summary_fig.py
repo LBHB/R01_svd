@@ -122,7 +122,7 @@ ax[1, 0].scatter(df[cat_mask & ~df.active & (df.area=='PEG')].groupby(by='site')
 
 ax[1, 0].set_xlabel('Passive')
 ax[1, 0].set_ylabel('Active')
-ax[1, 0].set_title('A1')
+ax[1, 0].set_title('PEG')
 
 
 m = np.max(ax[0, 0].get_xlim() + ax[0, 0].get_ylim() + ax[1, 0].get_xlim() + ax[1, 0].get_ylim())
