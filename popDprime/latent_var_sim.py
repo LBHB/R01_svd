@@ -191,8 +191,30 @@ def cc_err2(w, pred, indep_noise, lv, pred0, state, actual_cc):
        np.sum((pcproj_std-pp_std)**2)*10
     return E
 
+def cc_err_nolv(w, pred, indep_noise, lv, pred0, state, actual_cc):
+    _w=np.reshape(w,[-1, lv_count*3])
+    p = (_w[:,0:lv_count] @ state) *indep_noise
+    pascc = np.cov(p[:,pidx] - pred0[:,pidx])
+    actcc = np.cov(p[:,aidx] - pred0[:,aidx])
+    
+    pcproj = (p-pred).T.dot(pc_axes.T).T
+    pp_std = pcproj.std(axis=1)
+    E = np.sum((pascc-passive_cc)**2) / np.sum(passive_cc**2) + np.sum((actcc-active_cc)**2) / np.sum(active_cc**2) + \
+       np.sum((pcproj_std-pp_std)**2)*10
+    return E
+
 
 ## fit the LV weights
+
+# initialize
+w0 = np.zeros((cellcount,lv_count*3))
+w0[:,0]=0.05
+
+# first fit without independent noise to push out to LVs
+print(f'fit, round 0 (cc_err_nolv, indep)...')
+res = minimize(cc_err_nolv, w0, args=(pred, indep_noise, lv, pred0, state, actual_cc), method='L-BFGS-B')
+w_nolv=np.reshape(res.x,[-1, lv_count*3])
+
 
 # initialize
 w0 = np.zeros((cellcount,lv_count*3))
@@ -201,7 +223,7 @@ w0[:,lv_count*2]=pc1/10
 
 # first fit without independent noise to push out to LVs
 print(f'fit, round 1 (cc_err2, LV)...')
-res = minimize(cc_err2, w0, args=(pred, indep_noise*0, lv, pred0, state, actual_cc), method='L-BFGS-B')
+res = minimize(cc_err, w0, args=(pred, indep_noise*0, lv, pred0, state, actual_cc), method='L-BFGS-B')
 w1=np.reshape(res.x,[-1, lv_count*3])
 
 # second fit WITH independent noise to allow for independent noise
@@ -213,7 +235,8 @@ w=np.reshape(res.x,[-1, lv_count*3])
 pred_data = rec['pred']._data.copy()
 mm = rec['mask']._data[0,:]
 
-pred_indep = pred + (w[:,0:lv_count] @ state) *indep_noise
+#pred_indep = pred + (w[:,0:lv_count] @ state_fit) *indep_noise
+pred_indep = pred + (w_nolv[:,0:lv_count] @ state) *indep_noise
 pred_data[:,mm] = pred_indep
 rec['pred_indep'] = rec['pred']._modified_copy(data=pred_data)
 
