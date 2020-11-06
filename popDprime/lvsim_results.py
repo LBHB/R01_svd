@@ -27,7 +27,7 @@ df_psth.index = df_psth.pair
 df_psth[val] = np.sqrt(df_psth[val])
 
 df_ind = pd.read_pickle(DIR + 'results/res_indNoise.pickle')
-df_ind.index = df_psth.pair
+df_ind.index = df_ind.pair
 df_ind[val] = np.sqrt(df_ind[val])
 
 df_lv = pd.read_pickle(DIR + 'results/res_indNoiseLV.pickle')

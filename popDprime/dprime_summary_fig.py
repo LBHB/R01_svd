@@ -13,7 +13,7 @@ mpl.rcParams['axes.spines.top'] = False
 mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['font.size'] = 6
 
-savefig = True
+savefig = False
 col_per_site = False
 norm = False
 figsave = DIR + 'results/figures/decodng_summary.pdf'
