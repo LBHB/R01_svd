@@ -120,15 +120,33 @@ for batch in batches:
         if psth_only:
             rec = Recording.load(fn)
             rec = rec.create_mask(True)
+            resp = rec['resp']._data.copy()
             rec['resp'] = rec['resp']._modified_copy(rec['pred']._data)
+            rnew = rec['resp']._data.copy()
+            for i in range(rnew.shape[0]): 
+                idx = np.argwhere(resp[i,:]>0) 
+                rnew[i, :] = rnew[i, :] / resp[i, idx].min()
+            rec['resp'] = rec['resp']._modified_copy(rnew)
         elif ind_noise:
             rec = Recording.load(fn)
             rec = rec.create_mask(True)
+            resp = rec['resp']._data.copy()
             rec['resp'] = rec['resp']._modified_copy(rec['pred_indep']._data)
+            rnew = rec['resp']._data.copy()
+            for i in range(rnew.shape[0]): 
+                idx = np.argwhere(resp[i,:]>0) 
+                rnew[i, :] = rnew[i, :] / resp[i, idx].min()
+            rec['resp'] = rec['resp']._modified_copy(rnew)
         elif ind_noise_and_lv:
             rec = Recording.load(fn)
             rec = rec.create_mask(True)
+            resp = rec['resp']._data.copy()
             rec['resp'] = rec['resp']._modified_copy(rec['pred_lv']._data)
+            rnew = rec['resp']._data.copy()
+            for i in range(rnew.shape[0]): 
+                idx = np.argwhere(resp[i,:]>0) 
+                rnew[i, :] = rnew[i, :] / resp[i, idx].min()
+            rec['resp'] = rec['resp']._modified_copy(rnew)
         else:
             rec = manager.get_recording(recache=recache, **options)
             rec['resp'] = rec['resp'].rasterize()
@@ -280,7 +298,6 @@ for batch in batches:
             pca = PCA(n_components=2)
             pca.fit(Rall_u)
             pc_axes = pca.components_
-            pc_axes = pred_pc
 
             # plot projections for data into the PCA space and "all" TDR space
             # REF
