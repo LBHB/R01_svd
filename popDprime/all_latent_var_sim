@@ -1,0 +1,7 @@
+#!/bin/bash
+
+conda activate tfg
+siteids=("CRD009b" "CRD010b" "CRD011c" "CRD012b" "CRD013b" "CRD016c" "CRD017c" "CRD018d" "CRD019b")
+for t in ${siteids[@]}; do
+   python latent_var_sim.py $t
+done
