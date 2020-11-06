@@ -57,7 +57,7 @@ regress_task = False
 # use LV models
 psth_only = False
 ind_noise = False
-ind_noise_and_lv = True
+ind_noise_and_lv = False
 if (psth_only + ind_noise + ind_noise_and_lv) > 1:
     raise ValueError
 
@@ -110,12 +110,19 @@ for batch in batches:
         print("Analyzing site: {}".format(site))
         manager = BAPHYExperiment(batch=batch, siteid=site[:7], rawid=rawid)
 
+        # load the raw data (which will always be used for defining PC / dDR spaces and decoding axes)
+        rrec = manager.get_recording(recache=recache, **options)
+        rrec['resp'] = rrec['resp'].rasterize()
+        if batch == 302:
+            c, _ = parse_cellid({'cellid': site, 'batch': batch})
+            rrec['resp'] = rrec['resp'].extract_channels(c)
+
         # for loading simualted datasets from modelfits
         if psth_only | ind_noise | ind_noise_and_lv:
             # find cached recording with simulated signals
             path = '/auto/users/svd/projects/pop_models/tbp/'
             cached_recs = os.listdir(path)
-            cached_recs = [r for r in cached_recs if (site == r.split('_')[0]) & r.endswith('.tgz')]
+            cached_recs = [r for r in cached_recs if (site == r.split('_')[0]) & r.endswith('.tgz') & ('_copy' in r)]
             fn = path + cached_recs[0]
         if psth_only:
             rec = Recording.load(fn)
@@ -140,7 +147,7 @@ for batch in batches:
         elif ind_noise_and_lv:
             rec = Recording.load(fn)
             rec = rec.create_mask(True)
-            resp = rec['resp']._data.copy()
+            resp = rec['resp'].copy()._data.copy()
             rec['resp'] = rec['resp']._modified_copy(rec['pred_lv']._data)
             rnew = rec['resp']._data.copy()
             for i in range(rnew.shape[0]): 
@@ -148,24 +155,24 @@ for batch in batches:
                 rnew[i, :] = rnew[i, :] / resp[i, idx].min()
             rec['resp'] = rec['resp']._modified_copy(rnew)
         else:
-            rec = manager.get_recording(recache=recache, **options)
-            rec['resp'] = rec['resp'].rasterize()
-            if batch == 302:
-                c, _ = parse_cellid({'cellid': site, 'batch': batch})
-                rec['resp'] = rec['resp'].extract_channels(c)
+            rec = rrec.copy()
 
         # mask appropriate trials
         if batch in [324, 325]:
             active_mask = ['HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL']
             rec = rec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL'])
+            rrec = rrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL'])
         elif batch == 307:
             active_mask = ['HIT_TRIAL']
             rec = rec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
+            rrec = rrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
         elif batch == 302:
             active_mask = ['HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'INCORRECT_HIT_TRIAL']
             rec = rec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'INCORRECT_HIT_TRIAL'])
-        
+            rrec = rrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'INCORRECT_HIT_TRIAL'])
+
         rec = rec.apply_mask(reset_epochs=True)
+        rrec = rrec.apply_mask(reset_epochs=True)
 
         if regress_pupil & regress_task:
             rec = preproc.regress_state(rec, state_sigs=['pupil', 'behavior'])
@@ -269,8 +276,8 @@ for batch in batches:
             df = pd.DataFrame() 
 
             # get overall TDR axes (grouping target / catch)
-            tar = np.vstack([v[:, :, start:end].mean(axis=-1) for (k, v) in rec['resp'].extract_epochs(targets, mask=rec['mask']).items()])
-            cat = np.vstack([v[:, :, start:end].mean(axis=-1) for (k, v) in rec['resp'].extract_epochs(catch, mask=rec['mask']).items()])
+            tar = np.vstack([v[:, :, start:end].mean(axis=-1) for (k, v) in rrec['resp'].extract_epochs(targets, mask=rec['mask']).items()])
+            cat = np.vstack([v[:, :, start:end].mean(axis=-1) for (k, v) in rrec['resp'].extract_epochs(catch, mask=rec['mask']).items()])
             m = np.concatenate((tar, cat), axis=0).mean(axis=0)
             sd = np.concatenate((tar, cat), axis=0).std(axis=0)
             sd[sd==0] = 1
@@ -284,7 +291,7 @@ for batch in batches:
             all_tdr_weights = tdr.weights
 
             # get first two PCs of REF space, and try decoding there
-            dref = rec['resp'].extract_epochs(ref_stim, mask=rec['mask'])
+            dref = rrec['resp'].extract_epochs(ref_stim, mask=rec['mask'])
             mpca = np.concatenate([dref[e][:, :, start:end] for e in dref.keys()], axis=0).mean(axis=-1).mean(axis=0)
             sdpc = np.concatenate([dref[e][:, :, start:end] for e in dref.keys()], axis=0).mean(axis=-1).std(axis=0)
             sdpc[sdpc==0] = 1
@@ -298,6 +305,7 @@ for batch in batches:
             pca = PCA(n_components=2)
             pca.fit(Rall_u)
             pc_axes = pca.components_
+
 
             # plot projections for data into the PCA space and "all" TDR space
             # REF
@@ -480,8 +488,8 @@ for batch in batches:
                 else:
                     di = np.inf
                 # extract data over all trials for TDR
-                r1all = rec['resp'].extract_epoch(pair[0], mask=rec['mask'])[:, :, start:end].mean(axis=-1)
-                r2all = rec['resp'].extract_epoch(pair[1], mask=rec['mask'])[:, :, start:end].mean(axis=-1)
+                r1all = rrec['resp'].extract_epoch(pair[0], mask=rec['mask'])[:, :, start:end].mean(axis=-1)
+                r2all = rrec['resp'].extract_epoch(pair[1], mask=rec['mask'])[:, :, start:end].mean(axis=-1)
                 r1all = (r1all - m) / sd
                 r2all = (r2all - m) / sd
 
@@ -490,6 +498,12 @@ for batch in batches:
                 pair_tdr_weights = tdr.weights
 
                 # ================================= active data ======================================
+                # raw data (in case of simulations)
+                rr1 = rrec['resp'].extract_epoch(pair[0], mask=ra['mask'])[:, :, start:end].mean(axis=-1)
+                rr2 = rrec['resp'].extract_epoch(pair[1], mask=ra['mask'])[:, :, start:end].mean(axis=-1)
+                rr1 = (rr1 - m) / sd
+                rr2 = (rr2 - m) / sd
+
                 r1 = rec['resp'].extract_epoch(pair[0], mask=ra['mask'])[:, :, start:end].mean(axis=-1)
                 r2 = rec['resp'].extract_epoch(pair[1], mask=ra['mask'])[:, :, start:end].mean(axis=-1)
                 r1 = (r1 - m) / sd
@@ -515,7 +529,9 @@ for batch in batches:
                 sim2 = (sim2 - m) / sd
 
                 # using overall tdr
-                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(all_tdr_weights.T).T, r2.dot(all_tdr_weights.T).T)
+                # first, get wopt using the raw data
+                _, wopt, _, _, _, _ = compute_dprime(rr1.dot(all_tdr_weights.T).T, rr2.dot(all_tdr_weights.T).T)
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(all_tdr_weights.T).T, r2.dot(all_tdr_weights.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(all_tdr_weights.T).T, r2.dot(all_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
@@ -525,8 +541,8 @@ for batch in batches:
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
                                 'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
                 # === same as above, for simulatd data ===
-                # using overall tdr
-                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, wopt=wopt)
+                # using overall tdr (use the wopt from raw data)
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
@@ -538,7 +554,9 @@ for batch in batches:
 
                 
                 # using pair-specific tdr,
-                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(pair_tdr_weights.T).T, r2.dot(pair_tdr_weights.T).T)
+                # first, get wopt using the raw data
+                _, wopt, _, _, _, _ = compute_dprime(rr1.dot(pair_tdr_weights.T).T, rr2.dot(pair_tdr_weights.T).T)
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(pair_tdr_weights.T).T, r2.dot(pair_tdr_weights.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(pair_tdr_weights.T).T, r2.dot(pair_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, False, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
@@ -549,7 +567,7 @@ for batch in batches:
                                 'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
                 # === same as above, for simulatd data ===
                 # using pair-specific tdr,
-                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, wopt=wopt)
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, False, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
@@ -560,7 +578,9 @@ for batch in batches:
                                 'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
 
                 # using PCA
-                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(pc_axes.T).T, r2.dot(pc_axes.T).T)
+                # first, get wopt using the raw data
+                _, wopt, _, _, _, _ = compute_dprime(rr1.dot(pc_axes.T).T, rr2.dot(pc_axes.T).T)
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(pc_axes.T).T, r2.dot(pc_axes.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(pc_axes.T).T, r2.dot(pc_axes.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, True, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
@@ -572,7 +592,7 @@ for batch in batches:
 
                 # === same as above, for simulatd data ===
                 # using PCA
-                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pc_axes.T).T, sim2.dot(pc_axes.T).T, wopt=wopt)
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pc_axes.T).T, sim2.dot(pc_axes.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(pc_axes.T).T, sim2.dot(pc_axes.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, True, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
@@ -583,6 +603,12 @@ for batch in batches:
                                 'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
 
                 # ================================= passive data ======================================
+                # raw data (in case of simulations)
+                rr1 = rrec['resp'].extract_epoch(pair[0], mask=rp['mask'])[:, :, start:end].mean(axis=-1)
+                rr2 = rrec['resp'].extract_epoch(pair[1], mask=rp['mask'])[:, :, start:end].mean(axis=-1)
+                rr1 = (rr1 - m) / sd
+                rr2 = (rr2 - m) / sd
+
                 r1 = rec['resp'].extract_epoch(pair[0], mask=rp['mask'])[:, :, start:end].mean(axis=-1)
                 r2 = rec['resp'].extract_epoch(pair[1], mask=rp['mask'])[:, :, start:end].mean(axis=-1)
                 r1 = (r1 - m) / sd
@@ -608,7 +634,9 @@ for batch in batches:
                 sim2 = (sim2 - m) / sd
 
                 # using overall tdr
-                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(all_tdr_weights.T).T, r2.dot(all_tdr_weights.T).T)
+                # first, get wopt using the raw data
+                _, wopt, _, _, _, _ = compute_dprime(rr1.dot(all_tdr_weights.T).T, rr2.dot(all_tdr_weights.T).T)
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(all_tdr_weights.T).T, r2.dot(all_tdr_weights.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(all_tdr_weights.T).T, r2.dot(all_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
@@ -619,7 +647,7 @@ for batch in batches:
                                 'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
                 # === same as above, for simulatd data ===
                 # using overall tdr
-                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, wopt=wopt)
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
@@ -630,7 +658,9 @@ for batch in batches:
                                 'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
                 
                 # using pair-specific tdr
-                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(pair_tdr_weights.T).T, r2.dot(pair_tdr_weights.T).T)
+                # first, get wopt using the raw data
+                _, wopt, _, _, _, _ = compute_dprime(rr1.dot(pair_tdr_weights.T).T, rr2.dot(pair_tdr_weights.T).T)
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(pair_tdr_weights.T).T, r2.dot(pair_tdr_weights.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(pair_tdr_weights.T).T, r2.dot(pair_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, False, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
@@ -641,7 +671,7 @@ for batch in batches:
                                 'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
                 # === same as above, for simulatd data ===
                 # using pair-specific tdr,
-                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, wopt=wopt)
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, False, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
@@ -652,7 +682,9 @@ for batch in batches:
                                 'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
 
                 # using PCA
-                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(pc_axes.T).T, r2.dot(pc_axes.T).T,)
+                # first, get wopt using the raw data
+                _, wopt, _, _, _, _ = compute_dprime(rr1.dot(pc_axes.T).T, rr2.dot(pc_axes.T).T)
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(r1.dot(pc_axes.T).T, r2.dot(pc_axes.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(pc_axes.T).T, r2.dot(pc_axes.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, True, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
@@ -663,7 +695,7 @@ for batch in batches:
                                 'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
                 # ==== same as above for simulations ====
                 # using PCA
-                dp, wopt, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pc_axes.T).T, sim2.dot(pc_axes.T).T, wopt=wopt)
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pc_axes.T).T, sim2.dot(pc_axes.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(pc_axes.T).T, sim2.dot(pc_axes.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, True, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
