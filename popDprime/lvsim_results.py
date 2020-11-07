@@ -15,9 +15,11 @@ mpl.rcParams['font.size'] = 6
 
 savefig = True
 
-val = 'dp_opt'
+val = 'dp_diag'
 ms = 30
 ma = 40
+
+figname = f'vsim_dprime_results_{val}.pdf'
 
 df = pd.read_pickle(DIR + 'results/res.pickle')
 df.index = df.pair
@@ -202,6 +204,6 @@ ax.set_ylabel(r"$d'$")
 f.tight_layout()
 
 if savefig:
-        f.savefig(DIR + '/results/figures/lvsim_dprime_results.pdf')
+        f.savefig(DIR + f'/results/figures/{figname}')
 
 plt.show()

@@ -57,7 +57,7 @@ regress_task = False
 # use LV models
 psth_only = False
 ind_noise = False
-ind_noise_and_lv = True
+ind_noise_and_lv = False
 if (psth_only + ind_noise + ind_noise_and_lv) > 1:
     raise ValueError
 
@@ -601,6 +601,32 @@ for batch in batches:
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar',
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
                                 'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                
+
+                # ===================================== EARLY VS. LATE ========================================
+                edges = np.append(np.quantile(range(0, c.shape[0]), [0.5]).astype(int), c.shape[0])
+                sedges = np.append(0, edges[:-1])
+                earc = c[sedges[0]:edges[0]]
+                latc = c[sedges[1]:edges[1]]
+                edges = np.append(np.quantile(range(0, t.shape[0]), [0.5]).astype(int), t.shape[0])
+                sedges = np.append(0, edges[:-1])
+                eart = t[sedges[0]:edges[0]]
+                latt = t[sedges[1]:edges[1]]
+                # for early trials
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(earc.dot(ax.T).T, eart.dot(ax.T).T, wopt=wopt)
+                dp_diag, _, _, _, _, _ = compute_dprime(earc.dot(ax.T).T, eart.dot(ax.T).T, diag=True)
+                df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, category, 'early',
+                            snr1, snr2, f1, f2, ax, pstr, site, batch],
+                            index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'dr_space', 'trials',
+                                'snr1', 'snr2', 'f1', 'f2', 'dr_weights', 'pair', 'site', 'batch']).T)
+                # for late trials
+                dp, _, evals, evecs, evec_sim, dU = compute_dprime(latc.dot(ax.T).T, latt.dot(ax.T).T, wopt=wopt)
+                dp_diag, _, _, _, _, _ = compute_dprime(latc.dot(ax.T).T, latt.dot(ax.T).T, diag=True)
+                df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, category, 'late',
+                            snr1, snr2, f1, f2, ax, pstr, site, batch],
+                            index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'dr_space', 'trials',
+                                'snr1', 'snr2', 'f1', 'f2', 'dr_weights', 'pair', 'site', 'batch']).T)
+
 
                 # ================================= passive data ======================================
                 # raw data (in case of simulations)
@@ -704,6 +730,7 @@ for batch in batches:
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar',
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
                                 'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+
 
             df['site'] = site
             if batch in [302, 307, 324]: area='A1'
