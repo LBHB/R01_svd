@@ -57,7 +57,7 @@ regress_task = False
 # use LV models
 psth_only = False
 ind_noise = False
-ind_noise_and_lv = False
+ind_noise_and_lv = True
 if (psth_only + ind_noise + ind_noise_and_lv) > 1:
     raise ValueError
 
@@ -122,7 +122,7 @@ for batch in batches:
             # find cached recording with simulated signals
             path = '/auto/users/svd/projects/pop_models/tbp/'
             cached_recs = os.listdir(path)
-            cached_recs = [r for r in cached_recs if (site == r.split('_')[0]) & r.endswith('.tgz') & ('_copy' in r)]
+            cached_recs = [r for r in cached_recs if (site == r.split('_')[0]) & r.endswith('.tgz') & ('_copy' not in r)]
             fn = path + cached_recs[0]
         if psth_only:
             rec = Recording.load(fn)
