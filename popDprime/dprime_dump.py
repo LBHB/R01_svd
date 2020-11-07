@@ -39,7 +39,7 @@ special = False  # special loading (of a particular site, for example)
 
 # recording load options
 batches = [302, 307, 324, 325]
-batches = [324, 325]
+#batches = [324, 325]
 Aoptions = dict.fromkeys(batches)
 Aoptions[302] = {'resp': True, 'pupil': True, 'rasterfs': 10}
 Aoptions[307] = {'resp': True, 'pupil': True, 'rasterfs': 20}
@@ -509,6 +509,16 @@ for batch in batches:
                 r1 = (r1 - m) / sd
                 r2 = (r2 - m) / sd
 
+                # early / late responses
+                edges = np.append(int(r1.shape[0] / 2), r1.shape[0])
+                sedges = np.append(0, edges[:-1])
+                ear1 = r1[sedges[0]:edges[0]]
+                lat1 = r1[sedges[1]:edges[1]]
+                edges = np.append(int(r2.shape[0] / 2), r2.shape[0])
+                sedges = np.append(0, edges[:-1])
+                ear2 = r2[sedges[0]:edges[0]]
+                lat2 = r2[sedges[1]:edges[1]]
+
                 # simulate first order only changes between active / passive (this includes single neuron variance)
                 r1a = rec['resp'].extract_epoch(pair[0], mask=ra['mask'])[:, :, start:end].mean(axis=-1)
                 r2a = rec['resp'].extract_epoch(pair[1], mask=ra['mask'])[:, :, start:end].mean(axis=-1)
@@ -535,22 +545,42 @@ for batch in batches:
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(all_tdr_weights.T).T, r2.dot(all_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, all_tdr_weights, False], \
+                            f1, f2, di, all_tdr_weights, False, 'all'], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
+                # === same as above for early/late data ===
+                if (ear1.shape[0]>2) & (ear2.shape[0]>2) & (lat1.shape[0]>2) & (lat2.shape[0]>2):
+                    dp, _, evals, evecs, evec_sim, dU = compute_dprime(ear1.dot(all_tdr_weights.T).T, ear2.dot(all_tdr_weights.T).T, wopt=wopt)
+                    dp_diag, _, _, _, _, _ = compute_dprime(ear1.dot(all_tdr_weights.T).T, ear2.dot(all_tdr_weights.T).T, diag=True)
+                    df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, True, 
+                                idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
+                                f1, f2, di, all_tdr_weights, False, 'early'], \
+                                index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
+                                    'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
+                                    'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
+                                    'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
+                    dp, _, evals, evecs, evec_sim, dU = compute_dprime(lat1.dot(all_tdr_weights.T).T, lat2.dot(all_tdr_weights.T).T, wopt=wopt)
+                    dp_diag, _, _, _, _, _ = compute_dprime(lat1.dot(all_tdr_weights.T).T, lat2.dot(all_tdr_weights.T).T, diag=True)
+                    df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, True, 
+                                idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
+                                f1, f2, di, all_tdr_weights, False, 'late'], \
+                                index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
+                                    'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
+                                    'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
+                                    'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
                 # === same as above, for simulatd data ===
                 # using overall tdr (use the wopt from raw data)
                 dp, _, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, all_tdr_weights, True], \
+                            f1, f2, di, all_tdr_weights, True, 'all'], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
 
                 
                 # using pair-specific tdr,
@@ -560,22 +590,22 @@ for batch in batches:
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(pair_tdr_weights.T).T, r2.dot(pair_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, False, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, pair_tdr_weights, False], \
+                            f1, f2, di, pair_tdr_weights, False, 'all'], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
                 # === same as above, for simulatd data ===
                 # using pair-specific tdr,
                 dp, _, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, False, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, pair_tdr_weights, True], \
+                            f1, f2, di, pair_tdr_weights, True, 'all'], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
 
                 # using PCA
                 # first, get wopt using the raw data
@@ -584,11 +614,11 @@ for batch in batches:
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(pc_axes.T).T, r2.dot(pc_axes.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, True, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, pc_axes, False], \
+                            f1, f2, di, pc_axes, False, 'all'], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar',
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
 
                 # === same as above, for simulatd data ===
                 # using PCA
@@ -596,36 +626,11 @@ for batch in batches:
                 dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(pc_axes.T).T, sim2.dot(pc_axes.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, True, True, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, pc_axes, True], \
+                            f1, f2, di, pc_axes, True, 'all'], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar',
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
-                
-
-                # ===================================== EARLY VS. LATE ========================================
-                edges = np.append(np.quantile(range(0, c.shape[0]), [0.5]).astype(int), c.shape[0])
-                sedges = np.append(0, edges[:-1])
-                earc = c[sedges[0]:edges[0]]
-                latc = c[sedges[1]:edges[1]]
-                edges = np.append(np.quantile(range(0, t.shape[0]), [0.5]).astype(int), t.shape[0])
-                sedges = np.append(0, edges[:-1])
-                eart = t[sedges[0]:edges[0]]
-                latt = t[sedges[1]:edges[1]]
-                # for early trials
-                dp, _, evals, evecs, evec_sim, dU = compute_dprime(earc.dot(ax.T).T, eart.dot(ax.T).T, wopt=wopt)
-                dp_diag, _, _, _, _, _ = compute_dprime(earc.dot(ax.T).T, eart.dot(ax.T).T, diag=True)
-                df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, category, 'early',
-                            snr1, snr2, f1, f2, ax, pstr, site, batch],
-                            index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'dr_space', 'trials',
-                                'snr1', 'snr2', 'f1', 'f2', 'dr_weights', 'pair', 'site', 'batch']).T)
-                # for late trials
-                dp, _, evals, evecs, evec_sim, dU = compute_dprime(latc.dot(ax.T).T, latt.dot(ax.T).T, wopt=wopt)
-                dp_diag, _, _, _, _, _ = compute_dprime(latc.dot(ax.T).T, latt.dot(ax.T).T, diag=True)
-                df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, category, 'late',
-                            snr1, snr2, f1, f2, ax, pstr, site, batch],
-                            index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'dr_space', 'trials',
-                                'snr1', 'snr2', 'f1', 'f2', 'dr_weights', 'pair', 'site', 'batch']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
 
 
                 # ================================= passive data ======================================
@@ -666,22 +671,22 @@ for batch in batches:
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(all_tdr_weights.T).T, r2.dot(all_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, all_tdr_weights, False], \
+                            f1, f2, di, all_tdr_weights, False, 'all'], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
                 # === same as above, for simulatd data ===
                 # using overall tdr
                 dp, _, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(all_tdr_weights.T).T, sim2.dot(all_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, True, False, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, all_tdr_weights, True], \
+                            f1, f2, di, all_tdr_weights, True, 'all'], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
                 
                 # using pair-specific tdr
                 # first, get wopt using the raw data
@@ -690,22 +695,22 @@ for batch in batches:
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(pair_tdr_weights.T).T, r2.dot(pair_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, False, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, pair_tdr_weights, False], \
+                            f1, f2, di, pair_tdr_weights, False, 'all'], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
                 # === same as above, for simulatd data ===
                 # using pair-specific tdr,
                 dp, _, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(pair_tdr_weights.T).T, sim2.dot(pair_tdr_weights.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, False, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, pair_tdr_weights, True], \
+                            f1, f2, di, pair_tdr_weights, True, 'all'], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
 
                 # using PCA
                 # first, get wopt using the raw data
@@ -714,22 +719,22 @@ for batch in batches:
                 dp_diag, _, _, _, _, _ = compute_dprime(r1.dot(pc_axes.T).T, r2.dot(pc_axes.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, True, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, pc_axes, False], \
+                            f1, f2, di, pc_axes, False, 'all'], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar', 
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
                 # ==== same as above for simulations ====
                 # using PCA
                 dp, _, evals, evecs, evec_sim, dU = compute_dprime(sim1.dot(pc_axes.T).T, sim2.dot(pc_axes.T).T, wopt=wopt)
                 dp_diag, _, _, _, _, _ = compute_dprime(sim1.dot(pc_axes.T).T, sim2.dot(pc_axes.T).T, diag=True)
                 df = df.append(pd.DataFrame(data=[dp, wopt, evecs, evals, evec_sim, dU, dp_diag, False, True, False, 
                             idx, snr1, snr2, cat_cat, tar_tar, cat_tar, ref_tar, ref_ref, ref_cat, aref_tar, aref_cat, aref_ref, atar_ref, atar_aref, atar_cat,
-                            f1, f2, di, pc_axes, True], \
+                            f1, f2, di, pc_axes, True, 'all'], \
                             index=['dp_opt', 'wopt', 'evecs', 'evals', 'evec_sim', 'dU', 'dp_diag', 'tdr_overall', 'pca', 'active', 'pair',
                                 'snr1', 'snr2', 'cat_cat', 'tar_tar', 'cat_tar',
                                 'ref_tar', 'ref_ref', 'ref_cat', 'aref_tar', 'aref_cat', 'aref_ref', 'atar_ref','atar_aref', 'atar_cat',
-                                'f1', 'f2', 'DI', 'dr_weights', 'sim1']).T)
+                                'f1', 'f2', 'DI', 'dr_weights', 'sim1', 'trials']).T)
 
 
             df['site'] = site

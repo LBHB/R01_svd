@@ -26,9 +26,11 @@ df[val] = np.sqrt(df[val])
 m = 8
 ms = 4
 
-tar_mask = (df.tar_tar) & (df.tdr_overall) & (~df.pca) & df.batch.isin([324, 325]) & (df.f1 == df.f2) & ~df.sim1
-cat_mask = (df.cat_tar) & (df.tdr_overall) & (~df.pca) & df.batch.isin([324, 325]) & (df.f1 == df.f2) & ~df.sim1
-ref_mask = (df.ref_ref) & (df.tdr_overall) & (~df.pca) & df.batch.isin([324, 325]) & ~df.sim1
+batches = [324, 325]
+
+tar_mask = (df.tar_tar) & (df.tdr_overall) & (~df.pca) & df.batch.isin(batches) & (df.f1 == df.f2) & ~df.sim1 & (df.trials=='all')
+cat_mask = (df.cat_tar) & (df.tdr_overall) & (~df.pca) & df.batch.isin(batches) & (df.f1 == df.f2) & ~df.sim1 & (df.trials=='all')
+ref_mask = (df.ref_ref) & (df.tdr_overall) & (~df.pca) & df.batch.isin(batches) & ~df.sim1 & (df.trials=='all')
 
 f, ax = plt.subplots(2, 1, figsize=(2, 4), sharey=False)
 ticks = [0, 0.25, 0.75, 1, 1.5, 1.75]
