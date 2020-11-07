@@ -280,12 +280,12 @@ mm = rec['mask']._data[0,:]
 #pred_indep = pred + (w[:,0:lv_count] @ state_fit) *indep_noise
 pred_indep = pred + (w_nolv[:,0:lv_count] @ state_fit) *indep_noise
 pred_data[:,mm] = pred_indep
-rec.signals['pred_indep'] = rec['pred']._modified_copy(data=pred_data)
+rec['pred_indep'] = rec['pred']._modified_copy(data=pred_data)
 
 pred_lv = lv_mod(w[:,lv_count:(lv_count*2)], w[:,(lv_count*2):(lv_count*3)], state_fit, lv[:,:state.shape[1]], pred, showdetails=True) + (w[:,0:lv_count] @ state_fit) *indep_noise
 pred_data = rec['pred']._data.copy()
 pred_data[:,mm] = pred_lv
-rec.signals['pred_lv'] = rec['pred']._modified_copy(data=pred_data)
+rec['pred_lv'] = rec['pred']._modified_copy(data=pred_data)
 
 w_nopup=w.copy()
 w_nopup[:,lv_count+1]=0
@@ -293,7 +293,7 @@ w_nopup[:,lv_count*2+1]=0
 pred_nopup = lv_mod(w_nopup[:,lv_count:(lv_count*2)], w_nopup[:,(lv_count*2):(lv_count*3)], state_fit, lv[:,:state.shape[1]], pred, showdetails=False) + (w[:,0:lv_count] @ state_fit) *indep_noise
 pred_data = rec['pred']._data.copy()
 pred_data[:,mm] = pred_nopup
-rec.signals['pred_nopup'] = rec['pred']._modified_copy(data=pred_data)
+rec['pred_nopup'] = rec['pred']._modified_copy(data=pred_data)
 
 w_nobeh=w.copy()
 w_nobeh[:,(lv_count+2):(lv_count*2)]=0
@@ -301,7 +301,7 @@ w_nobeh[:,(lv_count*2+2):(lv_count*3)]=0
 pred_nobeh = lv_mod(w_nobeh[:,lv_count:(lv_count*2)], w_nobeh[:,(lv_count*2):(lv_count*3)], state_fit, lv[:,:state.shape[1]], pred, showdetails=False) + (w[:,0:lv_count] @ state_fit) *indep_noise
 pred_data = rec['pred']._data.copy()
 pred_data[:,mm] = pred_nobeh
-rec.signals['pred_nobeh'] = rec['pred']._modified_copy(data=pred_data)
+rec['pred_nobeh'] = rec['pred']._modified_copy(data=pred_data)
 
 ## display noise corr. matrices
 f,ax = plt.subplots(2,6, figsize=(12,4), sharex=True, sharey=True)
