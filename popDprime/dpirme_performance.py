@@ -15,7 +15,7 @@ mpl.rcParams['axes.spines.top'] = False
 mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['font.size'] = 6
 
-savefig = False
+savefig = True
 figsave1 = DIR + 'results/figures/variance_task_block.pdf'
 figsave2 = DIR + 'results/figures/variance_performance.pdf'
 
@@ -23,17 +23,17 @@ df = pd.read_pickle(DIR + 'results/res.pickle')
 df.index = df.pair
 df['var'] = df['evals'].apply(lambda x: sum(x))
 
-amask = (df.aref_tar) & (df.tdr_overall) & (~df.pca) & df.batch.isin([324, 325]) & ~df.sim1 & (df.trials=='all')
-emask = (df.aref_tar) & (df.tdr_overall) & (~df.pca) & df.batch.isin([324, 325]) & ~df.sim1 & (df.trials=='early')
-lmask = (df.aref_tar) & (df.tdr_overall) & (~df.pca) & df.batch.isin([324, 325]) & ~df.sim1 & (df.trials=='late')
+amask = (df.cat_tar) & (df.tdr_overall) & (~df.pca) & df.batch.isin([324, 325]) & ~df.sim1 & (df.trials=='all')
+emask = (df.cat_tar) & (df.tdr_overall) & (~df.pca) & df.batch.isin([324, 325]) & ~df.sim1 & (df.trials=='early')
+lmask = (df.cat_tar) & (df.tdr_overall) & (~df.pca) & df.batch.isin([324, 325]) & ~df.sim1 & (df.trials=='late')
 
 # plot passive / early / late total variance in dDR space, for hard / easy discrimination
 ms = 5
 f, ax = plt.subplots(1, 2, figsize=(2, 2), sharey=True)
 
-pdata = df[amask & ~df.active & (df.snr2==-5)]
-edata = df[emask & (df.snr2==-5)]
-ldata = df[lmask & (df.snr2==-5)]
+pdata = df[amask & ~df.active & (df.snr1==-5)]
+edata = df[emask & (df.snr1==-5)]
+ldata = df[lmask & (df.snr1==-5)]
 ax[0].plot([[0] * pdata.shape[0], [1] * pdata.shape[0], [2] * pdata.shape[0]],
                 [pdata['var'], edata['var'], ldata['var']], color='lightgrey', zorder=0)
 ax[0].errorbar([0, 1, 2], 
@@ -48,9 +48,9 @@ pvalue2 = round(ss.wilcoxon(edata['var'], ldata['var']).pvalue, 3)
 ax[0].set_title(f'Low SNR \n p: {pvalue1}, {pvalue2}')
 ax[0].set_ylabel(r"$dDR$ space variance")
 
-pdata = df[amask & ~df.active & ((df.snr2==np.inf) | (df.snr2==0))]
-edata = df[emask & ((df.snr2==np.inf) | (df.snr2==0))]
-ldata = df[lmask & ((df.snr2==np.inf) | (df.snr2==0))]
+pdata = df[amask & ~df.active & ((df.snr1==np.inf) | (df.snr1==0))]
+edata = df[emask & ((df.snr1==np.inf) | (df.snr1==0))]
+ldata = df[lmask & ((df.snr1==np.inf) | (df.snr1==0))]
 ax[1].plot([[0] * pdata.shape[0], [1] * pdata.shape[0], [2] * pdata.shape[0]],
                 [pdata['var'], edata['var'], ldata['var']], color='lightgrey', zorder=0)
 ax[1].errorbar([0, 1, 2], 
@@ -70,6 +70,9 @@ f.tight_layout()
 if savefig:
     f.savefig(figsave1)
 
+
+amask = (df.aref_tar) & (df.tdr_overall) & (~df.pca) & df.batch.isin([302, 307, 324, 325]) & ~df.sim1 & (df.trials=='all')
+
 f, ax = plt.subplots(1, 1, figsize=(2, 2))
 
 var_diff = (df[amask & df.active]['var'] - df[amask & ~df.active]['var'])# / (df[amask & df.active]['var'] + df[amask & ~df.active]['var'])
@@ -80,6 +83,8 @@ ax.set_xlabel('Behavior performance (DI)')
 ax.set_ylabel(r"$\Delta dDR$ variance")
 r, p = ss.pearsonr(perf, var_diff)
 ax.set_title(f"r: {round(r, 3)}, p: {round(p, 3)}")
+ax.axhline(0, linestyle='--', color='grey')
+ax.axvline(0.5, linestyle='--', color='grey')
 
 f.tight_layout()
 
