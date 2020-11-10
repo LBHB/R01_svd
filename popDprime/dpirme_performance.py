@@ -86,11 +86,11 @@ pvalue3 = round(ss.wilcoxon(pdata['var'], ldata['var']).pvalue, 3)
 if bootstrap_pvalue:
     # use bootstrapping to get pvalues
     d_pas_ear = {s: pdata[pdata.site==s]['var'].values-edata[edata.site==s]['var'].values for s in pdata.site.unique()} 
-    bs_pas_ear = stats.get_bootstrapped_sample(d_pas_ear, even_sample=True, nboot=1000)
+    bs_pas_ear = stats.get_bootstrapped_sample(d_pas_ear, even_sample=False, nboot=1000)
     d_ear_lat = {s: edata[edata.site==s]['var'].values-ldata[ldata.site==s]['var'].values for s in pdata.site.unique()} 
-    bs_ear_lat = stats.get_bootstrapped_sample(d_ear_lat, even_sample=True, nboot=1000)
+    bs_ear_lat = stats.get_bootstrapped_sample(d_ear_lat, even_sample=False, nboot=1000)
     d_pas_lat = {s: pdata[pdata.site==s]['var'].values-ldata[ldata.site==s]['var'].values for s in pdata.site.unique()} 
-    bs_pas_lat = stats.get_bootstrapped_sample(d_pas_lat, even_sample=True, nboot=1000)
+    bs_pas_lat = stats.get_bootstrapped_sample(d_pas_lat, even_sample=False, nboot=1000)
     pvalue1 = round(stats.get_direct_prob(bs_pas_ear, np.zeros(len(bs_pas_ear)))[0], 3)
     pvalue2 = round(stats.get_direct_prob(bs_ear_lat, np.zeros(len(bs_ear_lat)))[0], 3)
     pvalue3 = round(stats.get_direct_prob(bs_pas_lat, np.zeros(len(bs_pas_lat)))[0], 3)
