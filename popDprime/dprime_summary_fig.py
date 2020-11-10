@@ -13,10 +13,11 @@ mpl.rcParams['axes.spines.top'] = False
 mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['font.size'] = 6
 
-savefig = False
+savefig = True
 col_per_site = False
 norm = False
 figsave = DIR + 'results/figures/decodng_summary.pdf'
+bootstrap_pvalue = True
 
 df = pd.read_pickle(DIR + 'results/res.pickle')
 df.index = df.pair
@@ -140,6 +141,7 @@ if norm_delta:
     rr_delt = (rr_act - rr_pass) / (rr_act + rr_pass)
 else:
     rr_delt = rr_act - rr_pass
+pvalue1 = ss.wilcoxon(rr_delt.values.squeeze()).pvalue
 ax[0, 1].scatter(np.random.normal(ticks[0], sd, len(rr_delt)),
                 rr_delt, s=ms, alpha=0.1, color='mediumblue', edgecolor='none')
 ax[0, 1].errorbar(ticks[0], rr_delt.groupby(level=0).mean().mean(), yerr=rr_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -151,6 +153,7 @@ if norm_delta:
     ct_delt = (ct_act - ct_pass) / (ct_act + ct_pass)
 else:
     ct_delt = ct_act - ct_pass
+pvalue2 = ss.wilcoxon(ct_delt.values.squeeze()).pvalue
 ax[0, 1].scatter(np.random.normal(ticks[1], sd, len(ct_delt)),
                 ct_delt, s=ms, alpha=0.7, color='lightgrey', edgecolor='none')
 ax[0, 1].errorbar(ticks[1], ct_delt.groupby(level=0).mean().mean(), yerr=ct_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -163,6 +166,7 @@ if norm_delta:
     tt_delt = (tt_act - tt_pass) / (tt_act + tt_pass)
 else:
     tt_delt = tt_act - tt_pass
+pvalue3 = ss.wilcoxon(tt_delt.values.squeeze()).pvalue
 ax[0, 1].scatter(np.random.normal(ticks[2], sd, len(tt_delt)),
                 tt_delt, s=ms, alpha=0.7, color='coral', edgecolor='none')
 ax[0, 1].errorbar(ticks[2], tt_delt.groupby(level=0).mean().mean(), yerr=tt_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -172,6 +176,8 @@ ax[0, 1].axhline(0, linestyle='--', color='grey', zorder=0)
 ax[0, 1].set_ylabel(r"$\Delta d'$")
 ax[0, 1].set_ylim((None, ylim))
 
+ax[0, 1].set_title("p={:.2e}, p={:.2e}, p={:.2e}".format(pvalue1, pvalue2, pvalue3))
+
 # ref - ref
 rr_act = df[ref_mask & df.active & (df.area=='PEG')][[val, 'site']].set_index('site')
 rr_pass = df[ref_mask & ~df.active & (df.area=='PEG')][[val, 'site']].set_index('site')
@@ -179,6 +185,7 @@ if norm_delta:
     rr_delt = (rr_act - rr_pass) / (rr_act + rr_pass)
 else:
     rr_delt = rr_act - rr_pass
+pvalue1 = ss.wilcoxon(rr_delt.values.squeeze()).pvalue
 ax[1, 1].scatter(np.random.normal(ticks[0], sd, len(rr_delt)),
                 rr_delt, s=ms, alpha=0.1, color='mediumblue', edgecolor='none')
 ax[1, 1].errorbar(ticks[0], rr_delt.groupby(level=0).mean().mean(), yerr=rr_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -190,6 +197,7 @@ if norm_delta:
     ct_delt = (ct_act - ct_pass) / (ct_act + ct_pass)
 else:
     ct_delt = ct_act - ct_pass
+pvalue2 = ss.wilcoxon(ct_delt.values.squeeze()).pvalue
 ax[1, 1].scatter(np.random.normal(ticks[1], sd, len(ct_delt)),
                 ct_delt, s=ms, alpha=0.7, color='lightgrey', edgecolor='none')
 ax[1, 1].errorbar(ticks[1], ct_delt.groupby(level=0).mean().mean(), yerr=ct_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -202,6 +210,7 @@ if norm_delta:
     tt_delt = (tt_act - tt_pass) / (tt_act + tt_pass)
 else:
     tt_delt = tt_act - tt_pass
+pvalue3 = ss.wilcoxon(tt_delt.values.squeeze()).pvalue
 ax[1, 1].scatter(np.random.normal(ticks[2], sd, len(tt_delt)),
                 tt_delt, s=ms, alpha=0.7, color='coral', edgecolor='none')
 ax[1, 1].errorbar(ticks[2], tt_delt.groupby(level=0).mean().mean(), yerr=tt_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -210,6 +219,8 @@ ax[1, 1].errorbar(ticks[2], tt_delt.groupby(level=0).mean().mean(), yerr=tt_delt
 ax[1, 1].axhline(0, linestyle='--', color='grey', zorder=0)
 ax[1, 1].set_ylabel(r"$\Delta d'$")
 ax[1, 1].set_ylim((None, ylim))
+
+ax[1, 1].set_title("p={:.2e}, p={:.2e}, p={:.2e}".format(pvalue1, pvalue2, pvalue3))
 
 f.tight_layout()
 
