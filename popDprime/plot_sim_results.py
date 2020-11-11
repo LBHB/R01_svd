@@ -16,7 +16,7 @@ df.index = df.pair
 
 val = 'dp_opt'
 
-mask = ~df.tdr_overall & ~df.pca & df.cat_tar & (df.batch.isin([324 & 325]))
+mask = ~df.tdr_overall & ~df.pca & df.ref_ref & (df.batch.isin([324 & 325])) & (df.trials=='all')
 mask_raw = mask & ~df.sim1
 mask_sim = mask & df.sim1
 
