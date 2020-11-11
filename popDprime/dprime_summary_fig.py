@@ -15,7 +15,8 @@ mpl.rcParams['font.size'] = 6
 
 savefig = False
 col_per_site = False
-norm = False
+norm_delta = False
+ylim = 5
 figsave = DIR + 'results/figures/decodng_summary.pdf'
 
 df = pd.read_pickle(DIR + 'results/res.pickle')
@@ -55,6 +56,8 @@ for s in df[(df.area=='A1')].site.unique():
     a = df[cat_mask & df.active & (df.area=='A1') & (df.site==s)][val]
     ax[0].errorbar(ticks[4:], [p.mean() / norm, a.mean() / norm], yerr=[p.sem(), a.sem()], capsize=3, 
                         color='lightgrey', markeredgecolor='k', marker='o', markersize=ms)
+
+
 ax[0].axhline(1, linestyle='--', color='grey')
 ax[0].set_ylabel(r"$d'$ normalized to mean passive")
 ax[0].set_xticks(ticks)
@@ -90,10 +93,8 @@ f.tight_layout()
 # final ? summary plot
 np.random.seed(123)
 ticks = [0, 1, 2]
-norm_delta = False
 ms = 5
 sd = 0.1
-ylim = 5
 f, ax = plt.subplots(2, 2, figsize=(4, 4))
 
 
@@ -112,6 +113,15 @@ ax[0, 0].set_xlabel('Passive')
 ax[0, 0].set_ylabel('Active')
 ax[0, 0].set_title('A1')
 
+P = pd.concat([df[ref_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val],
+                df[tar_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val],
+                df[cat_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val]])
+A = pd.concat([df[ref_mask & df.active & (df.area=='A1')].groupby(by='site').mean()[val],
+                df[tar_mask & df.active & (df.area=='A1')].groupby(by='site').mean()[val],
+                df[cat_mask & df.active & (df.area=='A1')].groupby(by='site').mean()[val]])
+pval = ss.wilcoxon(P, A).pvalue
+print(f"Active vs. passive dprime for all sites/categories in A1, pval: {pval}")
+
 ax[1, 0].scatter(df[ref_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val],
                     df[ref_mask & df.active & (df.area=='PEG')].groupby(by='site').mean()[val], 
                     color='mediumblue', edgecolor='k', s=30, label='Ref vs. Ref')
@@ -125,6 +135,15 @@ ax[1, 0].scatter(df[cat_mask & ~df.active & (df.area=='PEG')].groupby(by='site')
 ax[1, 0].set_xlabel('Passive')
 ax[1, 0].set_ylabel('Active')
 ax[1, 0].set_title('PEG')
+
+P = pd.concat([df[ref_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val],
+                df[tar_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val],
+                df[cat_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val]])
+A = pd.concat([df[ref_mask & df.active & (df.area=='PEG')].groupby(by='site').mean()[val],
+                df[tar_mask & df.active & (df.area=='PEG')].groupby(by='site').mean()[val],
+                df[cat_mask & df.active & (df.area=='PEG')].groupby(by='site').mean()[val]])
+pval = ss.wilcoxon(P, A).pvalue
+print(f"Active vs. passive dprime for all sites/categories in PEG, pval: {pval}")
 
 
 m = np.max(ax[0, 0].get_xlim() + ax[0, 0].get_ylim() + ax[1, 0].get_xlim() + ax[1, 0].get_ylim())
@@ -140,10 +159,17 @@ if norm_delta:
     rr_delt = (rr_act - rr_pass) / (rr_act + rr_pass)
 else:
     rr_delt = rr_act - rr_pass
+
+d = {s: rr_delt.loc[rr_delt.index==s].values for s in rr_delt.index.unique()}
+bootstat = stats.get_bootstrapped_sample(d, nboot=5000)
+pval = 1 - stats.get_direct_prob(np.zeros(len(bootstat)), bootstat)[0]
+print(f"ref vs. ref in A1, pval: {pval}")
+
 ax[0, 1].scatter(np.random.normal(ticks[0], sd, len(rr_delt)),
                 rr_delt, s=ms, alpha=0.1, color='mediumblue', edgecolor='none')
 ax[0, 1].errorbar(ticks[0], rr_delt.groupby(level=0).mean().mean(), yerr=rr_delt.groupby(level=0).mean().sem(), capsize=3, 
                         color='mediumblue', markeredgecolor='k', marker='o', markersize=ms, ecolor='k')
+
 # cat - tar
 ct_act = df[cat_mask & df.active & (df.area=='A1')][[val, 'site']].set_index('site')
 ct_pass = df[cat_mask & ~df.active & (df.area=='A1')][[val, 'site']].set_index('site')
@@ -151,6 +177,12 @@ if norm_delta:
     ct_delt = (ct_act - ct_pass) / (ct_act + ct_pass)
 else:
     ct_delt = ct_act - ct_pass
+
+d = {s: ct_delt.loc[ct_delt.index==s].values for s in ct_delt.index.unique()}
+bootstat = stats.get_bootstrapped_sample(d, nboot=5000)
+pval = 1 - stats.get_direct_prob(np.zeros(len(bootstat)), bootstat)[0]
+print(f"cat vs. tar in A1, pval: {pval}")
+
 ax[0, 1].scatter(np.random.normal(ticks[1], sd, len(ct_delt)),
                 ct_delt, s=ms, alpha=0.7, color='lightgrey', edgecolor='none')
 ax[0, 1].errorbar(ticks[1], ct_delt.groupby(level=0).mean().mean(), yerr=ct_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -163,6 +195,12 @@ if norm_delta:
     tt_delt = (tt_act - tt_pass) / (tt_act + tt_pass)
 else:
     tt_delt = tt_act - tt_pass
+
+d = {s: tt_delt.loc[tt_delt.index==s].values for s in tt_delt.index.unique()}
+bootstat = stats.get_bootstrapped_sample(d, nboot=5000)
+pval = 1 - stats.get_direct_prob(np.zeros(len(bootstat)), bootstat)[0]
+print(f"tar vs. tar in A1, pval: {pval}")
+
 ax[0, 1].scatter(np.random.normal(ticks[2], sd, len(tt_delt)),
                 tt_delt, s=ms, alpha=0.7, color='coral', edgecolor='none')
 ax[0, 1].errorbar(ticks[2], tt_delt.groupby(level=0).mean().mean(), yerr=tt_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -179,6 +217,12 @@ if norm_delta:
     rr_delt = (rr_act - rr_pass) / (rr_act + rr_pass)
 else:
     rr_delt = rr_act - rr_pass
+
+d = {s: rr_delt.loc[rr_delt.index==s].values for s in rr_delt.index.unique()}
+bootstat = stats.get_bootstrapped_sample(d, nboot=5000)
+pval = 1 - stats.get_direct_prob(np.zeros(len(bootstat)), bootstat)[0]
+print(f"ref vs. ref in PEG, pval: {pval}")
+
 ax[1, 1].scatter(np.random.normal(ticks[0], sd, len(rr_delt)),
                 rr_delt, s=ms, alpha=0.1, color='mediumblue', edgecolor='none')
 ax[1, 1].errorbar(ticks[0], rr_delt.groupby(level=0).mean().mean(), yerr=rr_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -190,6 +234,12 @@ if norm_delta:
     ct_delt = (ct_act - ct_pass) / (ct_act + ct_pass)
 else:
     ct_delt = ct_act - ct_pass
+
+d = {s: ct_delt.loc[ct_delt.index==s].values for s in ct_delt.index.unique()}
+bootstat = stats.get_bootstrapped_sample(d, nboot=5000)
+pval = 1 - stats.get_direct_prob(np.zeros(len(bootstat)), bootstat)[0]
+print(f"cat vs. tar in PEG, pval: {pval}")
+
 ax[1, 1].scatter(np.random.normal(ticks[1], sd, len(ct_delt)),
                 ct_delt, s=ms, alpha=0.7, color='lightgrey', edgecolor='none')
 ax[1, 1].errorbar(ticks[1], ct_delt.groupby(level=0).mean().mean(), yerr=ct_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -202,6 +252,12 @@ if norm_delta:
     tt_delt = (tt_act - tt_pass) / (tt_act + tt_pass)
 else:
     tt_delt = tt_act - tt_pass
+
+d = {s: tt_delt.loc[tt_delt.index==s].values for s in tt_delt.index.unique()}
+bootstat = stats.get_bootstrapped_sample(d, nboot=5000)
+pval = 1 - stats.get_direct_prob(np.zeros(len(bootstat)), bootstat)[0]
+print(f"tar vs. tar in PEG, pval: {pval}")
+
 ax[1, 1].scatter(np.random.normal(ticks[2], sd, len(tt_delt)),
                 tt_delt, s=ms, alpha=0.7, color='coral', edgecolor='none')
 ax[1, 1].errorbar(ticks[2], tt_delt.groupby(level=0).mean().mean(), yerr=tt_delt.groupby(level=0).mean().sem(), capsize=3, 

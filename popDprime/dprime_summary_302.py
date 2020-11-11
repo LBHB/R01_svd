@@ -15,7 +15,9 @@ mpl.rcParams['font.size'] = 6
 
 savefig = True
 col_per_site = False
-norm = False
+norm = True
+norm_delta = False
+ylim = 6
 figsave = DIR + 'results/figures/decoding_summary302.pdf'
 
 df = pd.read_pickle(DIR + 'results/res.pickle')
@@ -65,10 +67,8 @@ f.tight_layout()
 # final ? summary plot
 np.random.seed(123)
 ticks = [0, 1, 2]
-norm_delta = False
 ms = 5
 sd = 0.1
-ylim = 6
 f, ax = plt.subplots(1, 2, figsize=(4, 2))
 
 
