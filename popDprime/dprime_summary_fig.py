@@ -2,6 +2,8 @@
 Active vs. passive scatter plot for three categories. 
 Summary of selective effects (invariance)
 """
+import scipy.stats as ss
+import statistics as stats
 from settings import DIR
 import nems.db as nd
 import pandas as pd
@@ -13,11 +15,12 @@ mpl.rcParams['axes.spines.top'] = False
 mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['font.size'] = 6
 
-savefig = False
+savefig = True
 col_per_site = False
 norm_delta = False
 ylim = 5
 figsave = DIR + 'results/figures/decodng_summary.pdf'
+bootstrap_pvalue = True
 
 df = pd.read_pickle(DIR + 'results/res.pickle')
 df.index = df.pair
@@ -108,10 +111,24 @@ ax[0, 0].scatter(df[tar_mask & ~df.active & (df.area=='A1')].groupby(by='site').
 ax[0, 0].scatter(df[cat_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val],
                     df[cat_mask & df.active & (df.area=='A1')].groupby(by='site').mean()[val], 
                     color='lightgrey', edgecolor='k', s=30, label='Cat vs. Tar')
+
+if bootstrap_pvalue:
+    data = df[(ref_mask | tar_mask | cat_mask) & df.active & (df.area=='A1')][val] - df[(ref_mask | tar_mask | cat_mask) & ~df.active & (df.area=='A1')][val]
+    data.index = df[(ref_mask | tar_mask | cat_mask) & df.active & (df.area=='A1')].site
+    d = {s: data.loc[s].values.squeeze() for s in data.index.get_level_values(0).unique()}
+    bs = stats.get_bootstrapped_sample(d, even_sample=False, nboot=1000)
+    pvalue = stats.get_direct_prob(bs, np.zeros(len(bs)))[0]
+else:
+    data = pd.concat([df[ref_mask & df.active & (df.area=='A1')].groupby(by='site').mean()[val] - df[ref_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val],
+                      df[tar_mask & df.active & (df.area=='A1')].groupby(by='site').mean()[val] - df[tar_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val],
+                      df[cat_mask & df.active & (df.area=='A1')].groupby(by='site').mean()[val] - df[cat_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val]])
+    pvalue = ss.wilcoxon(data.values).pvalue
+
 ax[0, 0].legend(frameon=False)
 ax[0, 0].set_xlabel('Passive')
 ax[0, 0].set_ylabel('Active')
-ax[0, 0].set_title('A1')
+ax[0, 0].set_title('A1, pval: {:.2e}'.format(pvalue))
+
 
 P = pd.concat([df[ref_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val],
                 df[tar_mask & ~df.active & (df.area=='A1')].groupby(by='site').mean()[val],
@@ -132,9 +149,21 @@ ax[1, 0].scatter(df[cat_mask & ~df.active & (df.area=='PEG')].groupby(by='site')
                     df[cat_mask & df.active & (df.area=='PEG')].groupby(by='site').mean()[val], 
                     color='lightgrey', edgecolor='k', s=30, label='Cat vs. Tar')
 
+if bootstrap_pvalue:
+    data = df[(ref_mask | tar_mask | cat_mask) & df.active & (df.area=='PEG')][val] - df[(ref_mask | tar_mask | cat_mask) & ~df.active & (df.area=='PEG')][val]
+    data.index = df[(ref_mask | tar_mask | cat_mask) & df.active & (df.area=='PEG')].site
+    d = {s: data.loc[s].values.squeeze() for s in data.index.get_level_values(0).unique()}
+    bs = stats.get_bootstrapped_sample(d, even_sample=False, nboot=1000)
+    pvalue = stats.get_direct_prob(bs, np.zeros(len(bs)))[0]
+
+else:
+    data = pd.concat([df[ref_mask & df.active & (df.area=='PEG')].groupby(by='site').mean()[val] - df[ref_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val],
+                      df[tar_mask & df.active & (df.area=='PEG')].groupby(by='site').mean()[val] - df[tar_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val],
+                      df[cat_mask & df.active & (df.area=='PEG')].groupby(by='site').mean()[val] - df[cat_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val]])
+    pvalue = ss.wilcoxon(data.values).pvalue
 ax[1, 0].set_xlabel('Passive')
 ax[1, 0].set_ylabel('Active')
-ax[1, 0].set_title('PEG')
+ax[1, 0].set_title('PEG, pval: {:.2e}'.format(pvalue))
 
 P = pd.concat([df[ref_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val],
                 df[tar_mask & ~df.active & (df.area=='PEG')].groupby(by='site').mean()[val],
@@ -159,12 +188,12 @@ if norm_delta:
     rr_delt = (rr_act - rr_pass) / (rr_act + rr_pass)
 else:
     rr_delt = rr_act - rr_pass
-
-d = {s: rr_delt.loc[rr_delt.index==s].values for s in rr_delt.index.unique()}
-bootstat = stats.get_bootstrapped_sample(d, nboot=5000)
-pval = 1 - stats.get_direct_prob(np.zeros(len(bootstat)), bootstat)[0]
-print(f"ref vs. ref in A1, pval: {pval}")
-
+if bootstrap_pvalue:
+    d = {s: rr_delt.loc[s].values.squeeze() for s in rr_delt.index.get_level_values(0).unique()}
+    bs = stats.get_bootstrapped_sample(d, even_sample=False, nboot=1000)
+    pvalue1 = stats.get_direct_prob(bs, np.zeros(len(bs)))[0]
+else:
+    pvalue1 = ss.wilcoxon(rr_delt.values.squeeze()).pvalue
 ax[0, 1].scatter(np.random.normal(ticks[0], sd, len(rr_delt)),
                 rr_delt, s=ms, alpha=0.1, color='mediumblue', edgecolor='none')
 ax[0, 1].errorbar(ticks[0], rr_delt.groupby(level=0).mean().mean(), yerr=rr_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -177,12 +206,12 @@ if norm_delta:
     ct_delt = (ct_act - ct_pass) / (ct_act + ct_pass)
 else:
     ct_delt = ct_act - ct_pass
-
-d = {s: ct_delt.loc[ct_delt.index==s].values for s in ct_delt.index.unique()}
-bootstat = stats.get_bootstrapped_sample(d, nboot=5000)
-pval = 1 - stats.get_direct_prob(np.zeros(len(bootstat)), bootstat)[0]
-print(f"cat vs. tar in A1, pval: {pval}")
-
+if bootstrap_pvalue:
+    d = {s: ct_delt.loc[s].values.squeeze() for s in ct_delt.index.get_level_values(0).unique()}
+    bs = stats.get_bootstrapped_sample(d, even_sample=False, nboot=1000)
+    pvalue2 = stats.get_direct_prob(bs, np.zeros(len(bs)))[0]
+else:
+    pvalue2 = ss.wilcoxon(ct_delt.values.squeeze()).pvalue
 ax[0, 1].scatter(np.random.normal(ticks[1], sd, len(ct_delt)),
                 ct_delt, s=ms, alpha=0.7, color='lightgrey', edgecolor='none')
 ax[0, 1].errorbar(ticks[1], ct_delt.groupby(level=0).mean().mean(), yerr=ct_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -195,12 +224,12 @@ if norm_delta:
     tt_delt = (tt_act - tt_pass) / (tt_act + tt_pass)
 else:
     tt_delt = tt_act - tt_pass
-
-d = {s: tt_delt.loc[tt_delt.index==s].values for s in tt_delt.index.unique()}
-bootstat = stats.get_bootstrapped_sample(d, nboot=5000)
-pval = 1 - stats.get_direct_prob(np.zeros(len(bootstat)), bootstat)[0]
-print(f"tar vs. tar in A1, pval: {pval}")
-
+if bootstrap_pvalue:
+    d = {s: (tt_delt.loc[s].values.squeeze() if tt_delt.loc[s].shape[0]>1 else tt_delt.loc[s].values) for s in tt_delt.index.get_level_values(0).unique()}
+    bs = stats.get_bootstrapped_sample(d, even_sample=False, nboot=1000)
+    pvalue3 = stats.get_direct_prob(bs, np.zeros(len(bs)))[0]
+else:
+    pvalue3 = ss.wilcoxon(tt_delt.values.squeeze()).pvalue
 ax[0, 1].scatter(np.random.normal(ticks[2], sd, len(tt_delt)),
                 tt_delt, s=ms, alpha=0.7, color='coral', edgecolor='none')
 ax[0, 1].errorbar(ticks[2], tt_delt.groupby(level=0).mean().mean(), yerr=tt_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -210,6 +239,8 @@ ax[0, 1].axhline(0, linestyle='--', color='grey', zorder=0)
 ax[0, 1].set_ylabel(r"$\Delta d'$")
 ax[0, 1].set_ylim((None, ylim))
 
+ax[0, 1].set_title("p={:.2e}, p={:.2e}, p={:.2e}".format(pvalue1, pvalue2, pvalue3))
+
 # ref - ref
 rr_act = df[ref_mask & df.active & (df.area=='PEG')][[val, 'site']].set_index('site')
 rr_pass = df[ref_mask & ~df.active & (df.area=='PEG')][[val, 'site']].set_index('site')
@@ -217,12 +248,12 @@ if norm_delta:
     rr_delt = (rr_act - rr_pass) / (rr_act + rr_pass)
 else:
     rr_delt = rr_act - rr_pass
-
-d = {s: rr_delt.loc[rr_delt.index==s].values for s in rr_delt.index.unique()}
-bootstat = stats.get_bootstrapped_sample(d, nboot=5000)
-pval = 1 - stats.get_direct_prob(np.zeros(len(bootstat)), bootstat)[0]
-print(f"ref vs. ref in PEG, pval: {pval}")
-
+if bootstrap_pvalue:
+    d = {s: rr_delt.loc[s].values.squeeze() for s in rr_delt.index.get_level_values(0).unique()}
+    bs = stats.get_bootstrapped_sample(d, even_sample=False, nboot=1000)
+    pvalue1 = stats.get_direct_prob(bs, np.zeros(len(bs)))[0]
+else:
+    pvalue1 = ss.wilcoxon(rr_delt.values.squeeze()).pvalue
 ax[1, 1].scatter(np.random.normal(ticks[0], sd, len(rr_delt)),
                 rr_delt, s=ms, alpha=0.1, color='mediumblue', edgecolor='none')
 ax[1, 1].errorbar(ticks[0], rr_delt.groupby(level=0).mean().mean(), yerr=rr_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -234,12 +265,12 @@ if norm_delta:
     ct_delt = (ct_act - ct_pass) / (ct_act + ct_pass)
 else:
     ct_delt = ct_act - ct_pass
-
-d = {s: ct_delt.loc[ct_delt.index==s].values for s in ct_delt.index.unique()}
-bootstat = stats.get_bootstrapped_sample(d, nboot=5000)
-pval = 1 - stats.get_direct_prob(np.zeros(len(bootstat)), bootstat)[0]
-print(f"cat vs. tar in PEG, pval: {pval}")
-
+if bootstrap_pvalue:
+    d = {s: (ct_delt.loc[s].values.squeeze() if ct_delt.loc[s].shape[0]>1 else ct_delt.loc[s].values) for s in ct_delt.index.get_level_values(0).unique()}
+    bs = stats.get_bootstrapped_sample(d, even_sample=False, nboot=1000)
+    pvalue2 = stats.get_direct_prob(bs, np.zeros(len(bs)))[0]
+else:
+    pvalue2 = ss.wilcoxon(ct_delt.values.squeeze()).pvalue
 ax[1, 1].scatter(np.random.normal(ticks[1], sd, len(ct_delt)),
                 ct_delt, s=ms, alpha=0.7, color='lightgrey', edgecolor='none')
 ax[1, 1].errorbar(ticks[1], ct_delt.groupby(level=0).mean().mean(), yerr=ct_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -252,12 +283,12 @@ if norm_delta:
     tt_delt = (tt_act - tt_pass) / (tt_act + tt_pass)
 else:
     tt_delt = tt_act - tt_pass
-
-d = {s: tt_delt.loc[tt_delt.index==s].values for s in tt_delt.index.unique()}
-bootstat = stats.get_bootstrapped_sample(d, nboot=5000)
-pval = 1 - stats.get_direct_prob(np.zeros(len(bootstat)), bootstat)[0]
-print(f"tar vs. tar in PEG, pval: {pval}")
-
+if bootstrap_pvalue:
+    d = {s: (tt_delt.loc[s].values.squeeze() if tt_delt.loc[s].shape[0]>1 else tt_delt.loc[s].values) for s in tt_delt.index.get_level_values(0).unique()}
+    bs = stats.get_bootstrapped_sample(d, even_sample=False, nboot=1000)
+    pvalue3 = stats.get_direct_prob(bs, np.zeros(len(bs)))[0]
+else:
+    pvalue3 = ss.wilcoxon(tt_delt.values.squeeze()).pvalue
 ax[1, 1].scatter(np.random.normal(ticks[2], sd, len(tt_delt)),
                 tt_delt, s=ms, alpha=0.7, color='coral', edgecolor='none')
 ax[1, 1].errorbar(ticks[2], tt_delt.groupby(level=0).mean().mean(), yerr=tt_delt.groupby(level=0).mean().sem(), capsize=3, 
@@ -266,6 +297,8 @@ ax[1, 1].errorbar(ticks[2], tt_delt.groupby(level=0).mean().mean(), yerr=tt_delt
 ax[1, 1].axhline(0, linestyle='--', color='grey', zorder=0)
 ax[1, 1].set_ylabel(r"$\Delta d'$")
 ax[1, 1].set_ylim((None, ylim))
+
+ax[1, 1].set_title("p={:.2e}, p={:.2e}, p={:.2e}".format(pvalue1, pvalue2, pvalue3))
 
 f.tight_layout()
 
