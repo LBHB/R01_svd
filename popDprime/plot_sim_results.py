@@ -16,7 +16,7 @@ df.index = df.pair
 
 val = 'dp_opt'
 
-mask = ~df.tdr_overall & ~df.pca & df.ref_ref & (df.batch.isin([324 & 325])) & (df.trials=='all')
+mask = ~df.tdr_overall & ~df.pca & df.ref_tar & (df.batch.isin([324 & 325])) & (df.trials=='all')
 mask_raw = mask & ~df.sim1
 mask_sim = mask & df.sim1
 
@@ -55,6 +55,26 @@ ma = np.max(ax.get_xlim()+ax.get_ylim())
 ax.plot([mi, ma], [mi, ma], 'k--')
 
 f.tight_layout()
+
+
+# sort difference as a function of the noise / signal alignment
+df['dU_norm'] = df['dU'].apply(lambda x: x / np.linalg.norm(x))
+df['cos_dU_evecs'] = df[['dU_norm', 'evecs']].apply(lambda x: np.abs(x.evecs.dot(x.dU_norm.T)), axis=1)
+
+f, ax = plt.subplots(1, 1, figsize=(4, 4))
+
+ax.scatter(df[mask_raw & df.active][val] - df[mask_raw & ~df.active][val], 
+                   df[mask_sim & df.active][val] - df[mask_sim & ~df.active][val], edgecolor='white', 
+                   c=df[mask_raw & ~df.active]['cos_dU_evecs'].apply(lambda x: x[0, 0]), cmap='Reds')
+ax.set_xlabel('Raw Data')
+ax.set_ylabel('First-order simulation')
+ax.set_title(r"$\Delta d'^2$")
+mi = np.min(ax.get_xlim()+ax.get_ylim())
+ma = np.max(ax.get_xlim()+ax.get_ylim())
+ax.plot([mi, ma], [mi, ma], 'k--')
+
+f.tight_layout()
+
 
 # if ref vs tar comparison have two dims to look at:
     # diff between CFs of sounds, and SNR of target

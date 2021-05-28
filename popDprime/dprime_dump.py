@@ -8,7 +8,7 @@ define TDR over all stims? Or on pairwise basis? Both? Use PC-space too?
 from nems.xform_helper import fit_model_xform, load_model_xform
 from settings import DIR
 from nems_lbhb.baphy_experiment import BAPHYExperiment
-from nems_lbhb.baphy import parse_cellid
+from nems_lbhb.baphy_io import parse_cellid
 from nems.recording import Recording
 from charlieTools.ptd_ms.utils import which_rawids
 import charlieTools.baphy_remote as br
@@ -35,16 +35,17 @@ mpl.rcParams['font.size'] = 14
 # fig path
 fpath = DIR+ 'results/figures/EllipsePlots/'
 res_path = DIR + 'results/'
-special = False  # special loading (of a particular site, for example)
+special = True  # special loading (of a particular site, for example)
+savefigs = True
 
 # recording load options
 batches = [302, 307, 324, 325]
 #batches = [324, 325]
 Aoptions = dict.fromkeys(batches)
-Aoptions[302] = {'resp': True, 'pupil': True, 'rasterfs': 10}
-Aoptions[307] = {'resp': True, 'pupil': True, 'rasterfs': 20}
-Aoptions[324] = {'resp': True, 'pupil': True, 'rasterfs': 10}
-Aoptions[325] = {'resp': True, 'pupil': True, 'rasterfs': 10}
+Aoptions[302] = {'resp': True, 'pupil': True, 'rasterfs': 10, 'stim': False}
+Aoptions[307] = {'resp': True, 'pupil': True, 'rasterfs': 20, 'stim': False}
+Aoptions[324] = {'resp': True, 'pupil': True, 'rasterfs': 10, 'stim': False}
+Aoptions[325] = {'resp': True, 'pupil': True, 'rasterfs': 10, 'stim': False}
 recache = False
 
 # state-space projection options
@@ -62,7 +63,7 @@ if (psth_only + ind_noise + ind_noise_and_lv) > 1:
     raise ValueError
 
 # plot ref
-plot_ref = True
+plot_ref = False
 if plot_ref:
     fext = '_withREF'
 else:
@@ -84,6 +85,8 @@ dec_window = {
 
 # siteids
 dfs = []
+if special:
+    batches = [325]
 for batch in batches:
     start = dec_window[batch]['start']
     end = dec_window[batch]['end']
@@ -97,6 +100,10 @@ for batch in batches:
     
     if special:
         sites = ['CRD010b']
+        sites = ['JLY031c']
+        sites = ['JLY033b']
+        #sites = ['JLY014d']
+        #sites = ['JLY025c']
     for site in sites:
         skip_site = False
         # set up subplots for PCA / TDR projections
@@ -108,9 +115,52 @@ for batch in batches:
         else:
             rawid = None
         print("Analyzing site: {}".format(site))
-        manager = BAPHYExperiment(batch=batch, siteid=site[:7], rawid=rawid)
+        if site=='JLY014d':
+            parmfiles = [
+                '/auto/data/daq/Jellybaby/JLY014/JLY014d03_a_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY014/JLY014d04_p_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY014/JLY014d05_a_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY014/JLY014d06_p_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY014/JLY014d07_a_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY014/JLY014d08_p_TBP.m'
+            ]
+            manager = BAPHYExperiment(parmfile=parmfiles)
+        elif site=='JLY025c':
+            parmfiles = [
+                '/auto/data/daq/Jellybaby/JLY025/JLY025c03_p_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY025/JLY025c04_a_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY025/JLY025c05_p_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY025/JLY025c06_a_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY025/JLY025c07_p_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY025/JLY025c08_a_TBP.m'
+            ]
+            manager = BAPHYExperiment(parmfile=parmfiles)
+        elif site=='JLY031c':
+            parmfiles = [
+                '/auto/data/daq/Jellybaby/JLY031/JLY031c02_p_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY031/JLY031c03_a_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY031/JLY031c04_p_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY031/JLY031c05_a_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY031/JLY031c06_p_TBP.m'
+            ]
+            manager = BAPHYExperiment(parmfile=parmfiles)
+        elif site=='JLY033b':
+            parmfiles = [
+                '/auto/data/daq/Jellybaby/JLY033/JLY033b04_a_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY033/JLY033b05_p_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY033/JLY033b06_a_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY033/JLY033b07_p_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY033/JLY033b08_a_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY033/JLY033b09_p_TBP.m',
+                '/auto/data/daq/Jellybaby/JLY033/JLY033b10_a_TBP.m'
+            ]
+            manager = BAPHYExperiment(parmfile=parmfiles)
+        else:
+            manager = BAPHYExperiment(batch=batch, cellid=site[:7], rawid=rawid)
 
         # load the raw data (which will always be used for defining PC / dDR spaces and decoding axes)
+        if special:
+            options['pupil'] = False
         rrec = manager.get_recording(recache=recache, **options)
         rrec['resp'] = rrec['resp'].rasterize()
         if batch == 302:
@@ -299,8 +349,8 @@ for batch in batches:
                 mpca = 0
                 sdpc = 1
 
-            dref = {k: (v.transpose(0, -1, 1) - mpca).transpose(0, -1, 1)  for (k, v) in dref.items()}
-            dref = {k: (v.transpose(0, -1, 1) / sdpc).transpose(0, -1, 1)  for (k, v) in dref.items()}
+            dref = {k: (v[:, :, start:end].transpose(0, -1, 1) - mpca).transpose(0, -1, 1)  for (k, v) in dref.items()}
+            dref = {k: (v[:, :, start:end].transpose(0, -1, 1) / sdpc).transpose(0, -1, 1)  for (k, v) in dref.items()}
             Rall_u = np.vstack([dref[k].sum(axis=2).mean(axis=0) for k in dref.keys()])
             pca = PCA(n_components=2)
             pca.fit(Rall_u)
@@ -415,24 +465,25 @@ for batch in batches:
 
             f.tight_layout()
 
-            if zscore:
-                if regress_pupil & regress_task:
-                    f.savefig(fpath + f'{site}{fext}_zscore_pr_br.pdf')
-                elif regress_task:
-                    f.savefig(fpath + f'{site}{fext}_zscore_br.pdf')
-                elif regress_pupil:
-                    f.savefig(fpath + f'{site}{fext}_zscore_pr.pdf')
+            if savefigs:
+                if zscore:
+                    if regress_pupil & regress_task:
+                        f.savefig(fpath + f'{site}{fext}_zscore_pr_br.pdf')
+                    elif regress_task:
+                        f.savefig(fpath + f'{site}{fext}_zscore_br.pdf')
+                    elif regress_pupil:
+                        f.savefig(fpath + f'{site}{fext}_zscore_pr.pdf')
+                    else:
+                        f.savefig(fpath + f'{site}{fext}_zscore.pdf')
                 else:
-                    f.savefig(fpath + f'{site}{fext}_zscore.pdf')
-            else:
-                if regress_pupil & regress_task:
-                    f.savefig(fpath + f'{site}{fext}_pr_br.pdf')
-                elif regress_task:
-                    f.savefig(fpath + f'{site}{fext}_br.pdf')
-                elif regress_pupil:
-                    f.savefig(fpath + f'{site}{fext}_pr.pdf')
-                else:
-                    f.savefig(fpath + f'{site}{fext}.pdf')
+                    if regress_pupil & regress_task:
+                        f.savefig(fpath + f'{site}{fext}_pr_br.pdf')
+                    elif regress_task:
+                        f.savefig(fpath + f'{site}{fext}_br.pdf')
+                    elif regress_pupil:
+                        f.savefig(fpath + f'{site}{fext}_pr.pdf')
+                    else:
+                        f.savefig(fpath + f'{site}{fext}.pdf')
 
             # get behavior performance for this site
             behavior_performance = manager.get_behavior_performance(**options)
